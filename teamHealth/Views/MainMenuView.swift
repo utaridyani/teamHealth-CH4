@@ -203,13 +203,16 @@ struct MainMenuView: View {
     func triggerHaptic(for circle: String) {
         switch circle {
         case "circle0":
-            HapticManager.impact(.heavy)
+            HapticManager.playAHAP(named: "heavy25")
+//            HapticManager.impact(.heavy)
             print("playing haptic circle0")
         case "circle1":
-            HapticManager.notification(.warning)
+            HapticManager.playAHAP(named: "heavy50")
+//            HapticManager.notification(.warning)
             print("playing haptic circle1")
         case "circle2":
-            HapticManager.notification(.success)
+            HapticManager.playAHAP(named: "heavy50")
+//            HapticManager.notification(.success)
             print("playing haptic circle2")
         default:
             break

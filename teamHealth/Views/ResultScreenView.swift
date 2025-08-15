@@ -142,13 +142,16 @@ struct ResultScreenView: View {
     func triggerHapticByCircle(for circle: String) {
         switch circle {
         case "circle0":
-            HapticManager.impact(.heavy)
+//            HapticManager.impact(.heavy)
+            HapticManager.playAHAP(named: "heavy25")
             print("playing haptic circle0")
         case "circle1":
-            HapticManager.notification(.warning)
+//            HapticManager.notification(.warning)
+            HapticManager.playAHAP(named: "heavy50")
             print("playing haptic circle1")
         case "circle2":
-            HapticManager.notification(.success)
+//            HapticManager.notification(.success)
+            HapticManager.playAHAP(named: "heavy75")
             print("playing haptic circle2")
         default:
             break
