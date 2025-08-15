@@ -119,6 +119,7 @@ struct MainMenuView: View {
                                         }
                                     }
                                     .onEnded { _ in
+//                                        HapticManager.stopAllHaptics()
                                         isPressing = false
                                         holdWork?.cancel()
                                         holdWork = nil
@@ -204,15 +205,12 @@ struct MainMenuView: View {
         switch circle {
         case "circle0":
             HapticManager.playAHAP(named: "heavy25")
-//            HapticManager.impact(.heavy)
             print("playing haptic circle0")
         case "circle1":
             HapticManager.playAHAP(named: "heavy50")
-//            HapticManager.notification(.warning)
             print("playing haptic circle1")
         case "circle2":
-            HapticManager.playAHAP(named: "heavy50")
-//            HapticManager.notification(.success)
+            HapticManager.playAHAP(named: "heavy75")
             print("playing haptic circle2")
         default:
             break

@@ -23,6 +23,7 @@ struct ResultScreenView: View {
     @State private var threeStartPositions: [Int:CGPoint] = [:]
     @State private var threeHoldWork: DispatchWorkItem?
     @State private var threeFingersHold = false
+    @State private var fingerPosition = "red"
     let threeHoldDuration: TimeInterval = 2.0
     let threeMoveTolerance: CGFloat = 30
     
@@ -30,10 +31,14 @@ struct ResultScreenView: View {
 //    @State private var goChooseHaptics = false
 
     var body: some View {
+//        let screenWidth = UIScreen.main.bounds.width
+        let screenHeight = UIScreen.main.bounds.height
+        
         NavigationStack {
             ZStack {
                 // bg
                 Color.white.ignoresSafeArea()
+
 
                 // multitouch tracker (transparent, full screen)
                 MultiTouchView(
@@ -44,10 +49,19 @@ struct ResultScreenView: View {
                         let circle = selectedHaptic.selectedCircle ?? "circle0"
                         let now = Date()
                         
-                        for (id, _) in newTouches {
+                        for (id, point) in newTouches {
                             if now.timeIntervalSince(lastTimes[id] ?? .distantPast) > hapticInterval {
                                 lastTimes[id] = now
-                                triggerHapticByCircle(for: circle)
+                                
+                                if let a = area(for: point.y, totalHeight: screenHeight) {
+                                    triggerHapticByCircle(for: circle, area: a)
+                                    print("yeay here")
+                                }
+
+                                else {
+                                    print("not there yet")
+                                }
+                                
                             }
                         }
 
@@ -111,9 +125,10 @@ struct ResultScreenView: View {
                 // Up to two circles for two fingers
                 ForEach(Array(touches.keys.prefix(2)), id: \.self) { id in
                     if let p = touches[id] {
+                        
                         Circle()
                             // change the color based on selected color after this
-                            .fill(selectedHaptic.selectedColor ?? .clear)
+                            .fill(selectedHaptic.selectedColor ?? .red)
                             .frame(width: 80, height: 80)
                             .position(x: p.x, y: (p.y - 40))
                             .allowsHitTesting(false)
@@ -127,6 +142,7 @@ struct ResultScreenView: View {
                         .position(x:widthScreen/2, y:50)
                 }
             }
+            .ignoresSafeArea()
             .navigationBarBackButtonHidden(true)
             .navigationDestination(isPresented: $backToMainMenu) {
                 MainMenuView()
@@ -139,25 +155,82 @@ struct ResultScreenView: View {
         
     }
     
-    func triggerHapticByCircle(for circle: String) {
+    // to detect where the touch point is
+    // the screen will be divided into 3 parts
+    func area(for y: CGFloat, totalHeight: CGFloat) -> Int? {
+        guard totalHeight > 0 else { return nil }
+        let h = totalHeight / 3
+        switch y {
+        // top
+        case 0..<h:
+            return 0
+        // middle
+        case h..<(2*h):
+            return 1
+        // bottom
+        case (2*h)...:
+            return 2
+        default:
+            return nil
+        }
+    }
+    
+    
+    // haptics trigger
+    func triggerHapticByCircle(for circle: String, area: Int) {
         switch circle {
         case "circle0":
-//            HapticManager.impact(.heavy)
-            HapticManager.playAHAP(named: "heavy25")
-            print("playing haptic circle0")
+            switch area {
+            case 0:
+                HapticManager.playAHAP(named: "heavy25")
+                print("playing haptic circle0 - 0")
+            case 1:
+                HapticManager.playAHAP(named: "heavy25_75")
+                print("playing haptic circle0 - 1")
+            case 2:
+                HapticManager.playAHAP(named: "heavy25_50")
+                print("playing haptic circle0 - 2")
+            default:
+                break
+            }
+            
+
         case "circle1":
-//            HapticManager.notification(.warning)
-            HapticManager.playAHAP(named: "heavy50")
-            print("playing haptic circle1")
+            switch area {
+            case 0:
+                HapticManager.playAHAP(named: "heavy50")
+                print("playing haptic circle1 - 0")
+            case 1:
+                HapticManager.playAHAP(named: "heavy50_75")
+                print("playing haptic circle1 - 1")
+            case 2:
+                HapticManager.playAHAP(named: "heavy50_50")
+                print("playing haptic circle1 - 2")
+            default:
+                break
+            }
+
         case "circle2":
-//            HapticManager.notification(.success)
-            HapticManager.playAHAP(named: "heavy75")
-            print("playing haptic circle2")
+            switch area {
+            case 0:
+                HapticManager.playAHAP(named: "heavy75")
+                print("playing haptic circle2 - 0")
+            case 1:
+                HapticManager.playAHAP(named: "heavy75_75")
+                print("playing haptic circle2 - 1")
+            case 2:
+                HapticManager.playAHAP(named: "heavy75_50")
+                print("playing haptic circle2 - 2")
+            default:
+                break
+            }
+
         default:
             break
         }
     }
 
+    
     // no longer used
     func triggerHaptic(for color: Color) {
         switch color {
@@ -170,4 +243,10 @@ struct ResultScreenView: View {
         default: break
         }
     }
+}
+
+
+#Preview {
+    ResultScreenView()
+        .environmentObject(SelectedHaptic())
 }

@@ -34,10 +34,12 @@ import AVFoundation
 
 struct HapticManager {
     private static var engine: CHHapticEngine?
+    private static var activePlayers = [CHHapticAdvancedPatternPlayer]()
     private static var supportsHaptics: Bool {
         CHHapticEngine.capabilitiesForHardware().supportsHaptics
     }
     
+    // previous haptics
     static func notification(_ type: UINotificationFeedbackGenerator.FeedbackType) {
         let generator = UINotificationFeedbackGenerator()
         generator.prepare()
@@ -55,7 +57,11 @@ struct HapticManager {
         generator.prepare()
         generator.selectionChanged()
     }
+    // previous haptics ended
     
+    
+    
+    // MARK: Used Haptics
     private static func createEngineIfNeeded() {
         if engine == nil {
             
@@ -108,4 +114,9 @@ struct HapticManager {
         }
         
     }
+    
+    
+//    static func stopAllHaptics() {
+//        try? engine?.stop()
+//    }
 }
