@@ -11,11 +11,14 @@ import SwiftData
 @main
 struct teamHealthApp: App {
     @StateObject var hapticData = HapticData()
-
+    @StateObject var selectedHaptic = SelectedHaptic()
+    
     var body: some Scene {
         WindowGroup {
-            HomeView()
-                .environmentObject(hapticData)
+            MainMenuView()
+                .environmentObject(selectedHaptic)
+//            HomeView()
+//                .environmentObject(hapticData)
         }
     }
 }

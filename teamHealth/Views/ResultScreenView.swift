@@ -9,14 +9,14 @@ import SwiftUI
 import SwiftData
 
 struct ResultScreenView: View {
-    @EnvironmentObject var hapticData: HapticData
+    @EnvironmentObject var hapticData: HapticData // no longer used
+    @EnvironmentObject var selectedHaptic: SelectedHaptic
 
-    // Multi-touch state
+    // multitouch state
     @State private var touches: [Int: CGPoint] = [:]       // touchID -> position
     @State private var lastTimes: [Int: Date] = [:]         // per-touch throttle
     @State private var holdThreeFingers = false
     let hapticInterval: TimeInterval = 0.2
-    
     
     
     @State private var threeIDs: Set<Int> = []
@@ -27,7 +27,7 @@ struct ResultScreenView: View {
     let threeMoveTolerance: CGFloat = 30
     
     @State private var goHome = false
-    @State private var goChooseHaptics = false
+//    @State private var goChooseHaptics = false
 
     var body: some View {
         NavigationStack {
@@ -37,15 +37,18 @@ struct ResultScreenView: View {
 
                 // multitouch tracker (transparent, full screen)
                 MultiTouchView(
+                    
                     onChange: { newTouches in
                         touches = newTouches
 
-                        let color = hapticData.selectedColor ?? .clear
+//                        let color = hapticData.selectedColor ?? .clear
                         let now = Date()
+                        let circle = selectedHaptic.selectedCircle ?? "circle0"
+                        
                         for (id, _) in newTouches {
                             if now.timeIntervalSince(lastTimes[id] ?? .distantPast) > hapticInterval {
                                 lastTimes[id] = now
-                                triggerHaptic(for: color)
+                                triggerHapticByCircle(for: circle)
                             }
                         }
 
@@ -95,7 +98,7 @@ struct ResultScreenView: View {
                     onUp: {
                         print("swipe up")
                         HapticManager.selection()
-                        goChooseHaptics = true
+//                        goChooseHaptics = true
                     }
                 )
                 .ignoresSafeArea()
@@ -104,7 +107,8 @@ struct ResultScreenView: View {
                 ForEach(Array(touches.keys.prefix(2)), id: \.self) { id in
                     if let p = touches[id] {
                         Circle()
-                            .fill((hapticData.selectedColor ?? .clear))
+                            // change the color based on selected color after this
+                            .fill(Color.red)
                             .frame(width: 80, height: 80)
                             .position(p)
                             .allowsHitTesting(false)
@@ -136,18 +140,33 @@ struct ResultScreenView: View {
             }
             .navigationBarBackButtonHidden(true)
             .navigationDestination(isPresented: $goHome) {
-                HomeView()
+                MainMenuView()
             }
-            .navigationDestination(isPresented: $goChooseHaptics) {
-                PickHapticsView()
-                    .environmentObject(hapticData)
-            }
+//            .navigationDestination(isPresented: $goChooseHaptics) {
+//                ContentView()
+//                    .environmentObject(hapticData)
+//            }
         }
         
     }
     
-    
+    func triggerHapticByCircle(for circle: String) {
+        switch circle {
+        case "circle0":
+            HapticManager.impact(.heavy)
+            print("playing haptic circle0")
+        case "circle1":
+            HapticManager.notification(.warning)
+            print("playing haptic circle1")
+        case "circle2":
+            HapticManager.notification(.success)
+            print("playing haptic circle2")
+        default:
+            break
+        }
+    }
 
+    // no longer used
     func triggerHaptic(for color: Color) {
         switch color {
         case .red:    HapticManager.notification(.success)

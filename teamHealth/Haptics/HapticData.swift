@@ -10,3 +10,7 @@ class HapticData: ObservableObject {
     @Published var selectedHapticName: String?
     @Published var selectedColor: Color?
 }
+
+class SelectedHaptic: ObservableObject {
+    @Published var selectedCircle: String?
+}
