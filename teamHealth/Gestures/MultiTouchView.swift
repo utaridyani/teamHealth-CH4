@@ -14,8 +14,9 @@ struct MultiTouchView: UIViewRepresentable {
     var onChange: ([Int: CGPoint]) -> Void
 
     var isArmed: () -> Bool = { false }
-    var onLeft: () -> Void = {}
-    var onUp: () -> Void = {}
+    var onRight: () -> Void = {}
+//    var onLeft: () -> Void = {}
+//    var onUp: () -> Void = {}
 
     func makeUIView(context: Context) -> TouchCaptureView {
         let v = TouchCaptureView()
@@ -37,24 +38,32 @@ struct MultiTouchView: UIViewRepresentable {
 
     func updateUIView(_ uiView: TouchCaptureView, context: Context) {
         context.coordinator.isArmed = isArmed
-        context.coordinator.onLeft = onLeft
-        context.coordinator.onUp = onUp
+        context.coordinator.onRight = onRight
+//        context.coordinator.onLeft = onLeft
+//        context.coordinator.onUp = onUp
         uiView.onChange = onChange
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(isArmed: isArmed, onLeft: onLeft, onUp: onUp)
+        Coordinator(
+            isArmed: isArmed,
+            onRight: onRight
+//            onLeft: onLeft,
+//            onUp: onUp
+        )
     }
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var isArmed: () -> Bool
-        var onLeft: () -> Void
-        var onUp: () -> Void
+        var onRight: () -> Void
+//        var onLeft: () -> Void
+//        var onUp: () -> Void
 
-        init(isArmed: @escaping () -> Bool, onLeft: @escaping () -> Void, onUp: @escaping () -> Void) {
+        init(isArmed: @escaping () -> Bool, onRight: @escaping () -> Void) {
             self.isArmed = isArmed
-            self.onLeft = onLeft
-            self.onUp = onUp
+            self.onRight = onRight
+//            self.onLeft = onLeft
+//            self.onUp = onUp
         }
 
         @objc func handlePan(_ g: UIPanGestureRecognizer) {
@@ -65,19 +74,23 @@ struct MultiTouchView: UIViewRepresentable {
                 let t = g.translation(in: g.view)
                 let v = g.velocity(in: g.view)
                 
-                
-                let leftTriggered = (t.x <= -80) || (v.x <= -300)
-                let upTriggered   = (t.y <= -80) || (v.y <= -300)
+                let rightTriggered = (t.x <= 80) || (v.x <= 300)
+//                let leftTriggered = (t.x <= -80) || (v.x <= -300)
+//                let upTriggered   = (t.y <= -80) || (v.y <= -300)
 
-                if leftTriggered {
-                    onLeft()
-                    // consume once
-                    g.isEnabled = false; g.isEnabled = true
-                } else if upTriggered {
-                    onUp()
-                    // consume once
+                if rightTriggered {
+                    onRight()
                     g.isEnabled = false; g.isEnabled = true
                 }
+//                if leftTriggered {
+//                    onLeft()
+//                    // consume once
+//                    g.isEnabled = false; g.isEnabled = true
+//                } else if upTriggered {
+//                    onUp()
+//                    // consume once
+//                    g.isEnabled = false; g.isEnabled = true
+//                }
             }
         }
 

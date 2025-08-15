@@ -39,6 +39,7 @@ struct MainMenuView: View {
                                     .onChanged { _ in
                                         if !isPressing {
                                             isPressing = true
+                                            let color = Color.red
                                             // play haptic when tap
                                             triggerHaptic(for: "circle0")
                                             
@@ -49,6 +50,7 @@ struct MainMenuView: View {
                                                 
                                                 // save haptic data after holding for 3 seconds
                                                 selectedHaptic.selectedCircle = "circle0"
+                                                selectedHaptic.selectedColor = color
                                                 print("Saved : haptic \(selectedHaptic.$selectedCircle)")
                                                 
                                                 // move to result view after that
@@ -85,6 +87,7 @@ struct MainMenuView: View {
                                     .onChanged { _ in
                                         if !isPressing {
                                             isPressing = true
+                                            let color = Color.blue
                                             // play haptic when tap
                                             triggerHaptic(for: "circle1")
                                             
@@ -95,6 +98,7 @@ struct MainMenuView: View {
                                                 
                                                 // save haptic data after holding for 3 seconds
                                                 selectedHaptic.selectedCircle = "circle1"
+                                                selectedHaptic.selectedColor = color
                                                 print("Saved : haptic \(selectedHaptic.$selectedCircle)")
                                                 
                                                 // move to result view after that
@@ -131,6 +135,7 @@ struct MainMenuView: View {
                                     .onChanged { _ in
                                         if !isPressing {
                                             isPressing = true
+                                            let color = Color.green
                                             // play haptic when tap
                                             triggerHaptic(for: "circle2")
                                             
@@ -141,6 +146,7 @@ struct MainMenuView: View {
                                                 
                                                 // save haptic data after holding for 3 seconds
                                                 selectedHaptic.selectedCircle = "circle2"
+                                                selectedHaptic.selectedColor = color
                                                 print("Saved : haptic \(selectedHaptic.$selectedCircle)")
                                                 
                                                 // move to result view after that

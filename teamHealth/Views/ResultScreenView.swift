@@ -26,7 +26,7 @@ struct ResultScreenView: View {
     let threeHoldDuration: TimeInterval = 2.0
     let threeMoveTolerance: CGFloat = 30
     
-    @State private var goHome = false
+    @State private var backToMainMenu = false
 //    @State private var goChooseHaptics = false
 
     var body: some View {
@@ -41,9 +41,8 @@ struct ResultScreenView: View {
                     onChange: { newTouches in
                         touches = newTouches
 
-//                        let color = hapticData.selectedColor ?? .clear
-                        let now = Date()
                         let circle = selectedHaptic.selectedCircle ?? "circle0"
+                        let now = Date()
                         
                         for (id, _) in newTouches {
                             if now.timeIntervalSince(lastTimes[id] ?? .distantPast) > hapticInterval {
@@ -89,17 +88,23 @@ struct ResultScreenView: View {
                     
                     // call the threeFingersHold if armed
                     isArmed: { threeFingersHold },
-                    onLeft: {
-                        print("swipe left")
+                    onRight: {
+                        print("swipe right")
                         HapticManager.selection()
                         threeFingersHold = false
-                        goHome = true
-                    },
-                    onUp: {
-                        print("swipe up")
-                        HapticManager.selection()
-//                        goChooseHaptics = true
+                        backToMainMenu = true
                     }
+//                    onLeft: {
+//                        print("swipe left")
+//                        HapticManager.selection()
+//                        threeFingersHold = false
+//                        goHome = true
+//                    },
+//                    onUp: {
+//                        print("swipe up")
+//                        HapticManager.selection()
+//                        goChooseHaptics = true
+//                    }
                 )
                 .ignoresSafeArea()
 
@@ -108,38 +113,22 @@ struct ResultScreenView: View {
                     if let p = touches[id] {
                         Circle()
                             // change the color based on selected color after this
-                            .fill(Color.red)
+                            .fill(selectedHaptic.selectedColor ?? .clear)
                             .frame(width: 80, height: 80)
-                            .position(p)
+                            .position(x: p.x, y: (p.y - 40))
                             .allowsHitTesting(false)
                             .shadow(radius: 4)
                     }
                 }
-                
-    //            if threeFingersHold {
-    //                Text("Swipe")
-    //            }
-                
-    //            ThreeFingerPanLeft(
-    //                isArmed: { threeFingersHold },
-    //                onLeft: {
-    //                    print("3-finger LEFT swipe detected (undo)")
-    //                    threeFingersHold = false // reset after action
-    //                }
-    //            )
-    //            .frame(maxWidth: .infinity, maxHeight: .infinity)
-    //            .ignoresSafeArea()
-    //            .allowsHitTesting(true)
-                
-                
+
                 if threeFingersHold {
                     let widthScreen = UIScreen.main.bounds.width
-                    Text("Swipe up or left")
+                    Text("Swipe right to go back")
                         .position(x:widthScreen/2, y:50)
                 }
             }
             .navigationBarBackButtonHidden(true)
-            .navigationDestination(isPresented: $goHome) {
+            .navigationDestination(isPresented: $backToMainMenu) {
                 MainMenuView()
             }
 //            .navigationDestination(isPresented: $goChooseHaptics) {
