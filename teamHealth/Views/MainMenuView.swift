@@ -255,7 +255,7 @@ struct MainMenuView: View {
     func triggerHaptic(for circle: String) {
         switch circle {
         case "circle0":
-            HapticManager.playAHAP(named: "heavy25")
+            HapticManager.playAHAP(named: "bubble")
             print("playing haptic circle0")
         case "circle1":
             HapticManager.playAHAP(named: "heavy50")
