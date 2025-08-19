@@ -208,18 +208,7 @@ struct MainMenuView: View {
                         }
                         .tabViewStyle(.page(indexDisplayMode: .never))
                         .position(x: screenWidth/2, y: screenHeight/2)
-                        
-                        // indicators
-//                        HStack(spacing: 10) {
-//                            ForEach(0..<3) { i in
-//                                Circle()
-//                                    .fill(i == selection ? Color.white : Color.gray.opacity(0.4))
-//                                    .frame(width: i == selection ? 12 : 8, height: i == selection ? 12 : 8)
-//                                    .animation(.easeInOut(duration: 0.2), value: selection)
-//                            }
-//                        }
-//                        .position(x: screenWidth/2, y: screenHeight/3)
-                        
+
                     }
                 }
                 .onAppear {
@@ -261,9 +250,9 @@ struct MainMenuView: View {
                     } else if selection == 2 {
                         LinearGradient(
                             stops: [
-                            Gradient.Stop(color: .black, location: 0.00),
-                            Gradient.Stop(color: Color(red: 0, green: 0.3, blue: 0.9).opacity(0.7), location: 1),
-//                            Gradient.Stop(color: Color(red: 0, green: 0.3, blue: 0.9).opacity(1), location: 1.00),
+                            Gradient.Stop(color: Color(red: 0.1, green: 0.1, blue: 0.1), location: 0.00),
+                            Gradient.Stop(color: Color(red: 0, green: 0.5, blue: 0.8).opacity(0.8), location: 1),
+//                            Gradient.Stop(color: Color(red: 0, green: 0.5, blue: 0.8).opacity(0.4), location: 1),
                             ],
                             startPoint: UnitPoint(x: 0.1, y: -0.02),
                             endPoint: UnitPoint(x: 1.3, y: 2)
