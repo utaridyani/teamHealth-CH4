@@ -1,0 +1,102 @@
+{
+    "Version": 1.0,
+    "Metadata": {
+        "Project": "Haptic Sampler",
+        "Created": "19 Aug 2025",
+        "Description": "Bubbly pop pattern — 50% scaled version for gentle bubbles."
+    },
+    "Pattern": [
+        {
+            "Event": {
+                "Time": 0.0,
+                "EventType": "HapticTransient",
+                "EventParameters": [
+                    { "ParameterID": "HapticIntensity", "ParameterValue": 0.35 },
+                    { "ParameterID": "HapticSharpness", "ParameterValue": 0.2 }
+                ]
+            }
+        },
+        {
+            "Event": {
+                "Time": 0.15,
+                "EventType": "HapticTransient",
+                "EventParameters": [
+                    { "ParameterID": "HapticIntensity", "ParameterValue": 0.25 },
+                    { "ParameterID": "HapticSharpness", "ParameterValue": 0.15 }
+                ]
+            }
+        },
+        {
+            "Event": {
+                "Time": 0.32,
+                "EventType": "HapticTransient",
+                "EventParameters": [
+                    { "ParameterID": "HapticIntensity", "ParameterValue": 0.4 },
+                    { "ParameterID": "HapticSharpness", "ParameterValue": 0.25 }
+                ]
+            }
+        },
+        {
+            "Event": {
+                "Time": 0.47,
+                "EventType": "HapticContinuous",
+                "EventDuration": 0.2,
+                "EventParameters": [
+                    { "ParameterID": "HapticIntensity", "ParameterValue": 0.15 },
+                    { "ParameterID": "HapticSharpness", "ParameterValue": 0.1 }
+                ]
+            }
+        },
+        {
+            "Event": {
+                "Time": 0.55,
+                "EventType": "HapticTransient",
+                "EventParameters": [
+                    { "ParameterID": "HapticIntensity", "ParameterValue": 0.45 },
+                    { "ParameterID": "HapticSharpness", "ParameterValue": 0.225 }
+                ]
+            }
+        },
+        {
+            "Event": {
+                "Time": 0.73,
+                "EventType": "HapticTransient",
+                "EventParameters": [
+                    { "ParameterID": "HapticIntensity", "ParameterValue": 0.3 },
+                    { "ParameterID": "HapticSharpness", "ParameterValue": 0.175 }
+                ]
+            }
+        },
+        {
+            "Event": {
+                "Time": 0.9,
+                "EventType": "HapticContinuous",
+                "EventDuration": 0.25,
+                "EventParameters": [
+                    { "ParameterID": "HapticIntensity", "ParameterValue": 0.125 },
+                    { "ParameterID": "HapticSharpness", "ParameterValue": 0.1 }
+                ]
+            }
+        },
+        {
+            "Event": {
+                "Time": 1.05,
+                "EventType": "HapticTransient",
+                "EventParameters": [
+                    { "ParameterID": "HapticIntensity", "ParameterValue": 0.5 },
+                    { "ParameterID": "HapticSharpness", "ParameterValue": 0.25 }
+                ]
+            }
+        },
+        {
+            "Event": {
+                "Time": 1.2,
+                "EventType": "HapticTransient",
+                "EventParameters": [
+                    { "ParameterID": "HapticIntensity", "ParameterValue": 0.35 },
+                    { "ParameterID": "HapticSharpness", "ParameterValue": 0.2 }
+                ]
+            }
+        }
+    ]
+}

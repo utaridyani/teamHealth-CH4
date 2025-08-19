@@ -182,13 +182,13 @@ struct ResultScreenView: View {
         case "circle0":
             switch area {
             case 0:
-                HapticManager.playAHAP(named: "heavy25")
+                HapticManager.playAHAP(named: "bubble")
                 print("playing haptic circle0 - 0")
             case 1:
-                HapticManager.playAHAP(named: "heavy25_75")
+                HapticManager.playAHAP(named: "bubble_75")
                 print("playing haptic circle0 - 1")
             case 2:
-                HapticManager.playAHAP(named: "heavy25_50")
+                HapticManager.playAHAP(named: "bubble_50")
                 print("playing haptic circle0 - 2")
             default:
                 break
