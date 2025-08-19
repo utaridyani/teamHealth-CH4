@@ -207,18 +207,18 @@ struct MainMenuView: View {
                                 )
                         }
                         .tabViewStyle(.page(indexDisplayMode: .never))
-                        .position(x: screenWidth/2, y: screenHeight/2.5)
+                        .position(x: screenWidth/2, y: screenHeight/2)
                         
                         // indicators
-                        HStack(spacing: 10) {
-                            ForEach(0..<3) { i in
-                                Circle()
-                                    .fill(i == selection ? Color.white : Color.gray.opacity(0.4))
-                                    .frame(width: i == selection ? 12 : 8, height: i == selection ? 12 : 8)
-                                    .animation(.easeInOut(duration: 0.2), value: selection)
-                            }
-                        }
-                        .position(x: screenWidth/2, y: screenHeight/3)
+//                        HStack(spacing: 10) {
+//                            ForEach(0..<3) { i in
+//                                Circle()
+//                                    .fill(i == selection ? Color.white : Color.gray.opacity(0.4))
+//                                    .frame(width: i == selection ? 12 : 8, height: i == selection ? 12 : 8)
+//                                    .animation(.easeInOut(duration: 0.2), value: selection)
+//                            }
+//                        }
+//                        .position(x: screenWidth/2, y: screenHeight/3)
                         
                     }
                 }
@@ -238,7 +238,41 @@ struct MainMenuView: View {
                         didMakeStars = true
                     }
                 }
-                .background(Color.black)
+                .background {
+                    if selection == 0 {
+                        LinearGradient(
+                            stops: [
+                                Gradient.Stop(color: Color(red: 0.1, green: 0.1, blue: 0.1), location: 0.00),
+                                Gradient.Stop(color: Color(red: 1, green: 0.76, blue: 0.32), location: 1.00),
+                            ],
+                            startPoint: UnitPoint(x: 0.1, y: -0.02),
+                            endPoint: UnitPoint(x: 1.18, y: 3.00)
+                        )
+                    } else if selection == 1 {
+                        LinearGradient(
+                            stops: [
+                            Gradient.Stop(color: Color(red: 0.05, green: 0.05, blue: 0.05), location: 0.00),
+                            Gradient.Stop(color: Color(red: 0.23, green: 0.07, blue: 0.4).opacity(0.7), location: 0.57),
+                            Gradient.Stop(color: Color(red: 1, green: 0.73, blue: 0.9).opacity(0.9), location: 1.00),
+                            ],
+                            startPoint: UnitPoint(x: 0.1, y: -0.02),
+                            endPoint: UnitPoint(x: 1.18, y: 2.00)
+                        )
+                    } else if selection == 2 {
+                        LinearGradient(
+                            stops: [
+                            Gradient.Stop(color: .black, location: 0.00),
+                            Gradient.Stop(color: Color(red: 0, green: 0.3, blue: 0.9).opacity(0.7), location: 1),
+//                            Gradient.Stop(color: Color(red: 0, green: 0.3, blue: 0.9).opacity(1), location: 1.00),
+                            ],
+                            startPoint: UnitPoint(x: 0.1, y: -0.02),
+                            endPoint: UnitPoint(x: 1.3, y: 2)
+                        )
+                    }
+                    else {
+                        Color.black
+                    }
+                }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea()
                 .navigationBarBackButtonHidden()
