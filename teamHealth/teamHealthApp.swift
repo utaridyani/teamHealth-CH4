@@ -17,7 +17,7 @@ struct teamHealthApp: App {
         WindowGroup {
             MainMenuView()
                 .environmentObject(selectedHaptic)
-            
+                .environmentObject(hapticData)
         }
     }
 }
