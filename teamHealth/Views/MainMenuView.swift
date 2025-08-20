@@ -4,15 +4,59 @@
 //
 //  Created by Utari Dyani Laksmi on 14/08/25.
 //
+//
+//
+//  MainMenuView.swift
+//  test_haptics
+//
+//  Created by Utari Dyani Laksmi on 14/08/25.
+//
 
 import SwiftUI
+
+// MARK: - Star Model for Animation
+struct Star: Identifiable {
+    let id = UUID()
+    var angle: CGFloat // Direction from center
+    var distance: CGFloat // Distance from center
+    var speed: CGFloat
+    var baseSize: CGFloat
+    
+    init() {
+        // Each star starts from the center with a random direction
+        self.angle = CGFloat.random(in: 0...(2 * .pi))
+        self.distance = 1.0 // Start very close to center
+        self.speed = CGFloat.random(in: 50...150) // Speed of movement outward
+        self.baseSize = CGFloat.random(in: 0.5...2.0)
+    }
+    
+    // Calculate actual position based on angle and distance
+    func position(centerX: CGFloat, centerY: CGFloat) -> CGPoint {
+        return CGPoint(
+            x: centerX + cos(angle) * distance,
+            y: centerY + sin(angle) * distance
+        )
+    }
+    
+    // Calculate size based on distance (closer = smaller, farther = bigger)
+    var currentSize: CGFloat {
+        return baseSize * min(distance / 100, 3.0)
+    }
+    
+    // Calculate opacity based on distance
+    var currentOpacity: Double {
+        let maxDistance: CGFloat = 400
+        let opacity = min(distance / maxDistance, 1.0)
+        return Double(max(0.1, opacity))
+    }
+}
 
 struct MainMenuView: View {
     @EnvironmentObject var hapticData: HapticData // no longer used
     @EnvironmentObject var selectedHaptic: SelectedHaptic
     
     @State private var selection = 0
-
+    
     @State private var lastHapticTime: Date = .distantPast
     @State private var holdWork: DispatchWorkItem? = nil
     @State private var isPressing = false
@@ -20,42 +64,29 @@ struct MainMenuView: View {
     
     @State private var moveToResultView = false
     
-    @State private var starPoints: [CGPoint] = []
-    @State private var starPoints2: [CGPoint] = []
-    @State private var didMakeStars = false
-
+    // Updated star animation state
+    @State private var stars: [Star] = []
+    private let starCount = 100 // Reasonable amount for smooth performance
+    
+    // Timer for smooth animation
+    private let timer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
+    
     var body: some View {
         let screenWidth = UIScreen.main.bounds.width
         let screenHeight = UIScreen.main.bounds.height
-
+        
         NavigationStack {
             GeometryReader { geo in
                 ZStack {
-                    // background color
-//                    LinearGradient(
-//                        gradient: Gradient(colors: [
-//                            Color(red: 0, green: 0, blue: 0),
-//                            Color(red: 255/255, green: 195/255, blue: 82/255)
-//                        ]),
-//                        startPoint: .topLeading,
-//                        endPoint: .bottomTrailing
-//                    )
-//                    .ignoresSafeArea()
-                    
-                    // little stars - size 1
-                    ForEach(0..<starPoints.count, id: \.self) { i in
+                    // Animated moving stars - infinite space travel effect
+                    ForEach(stars) { star in
+                        let starPosition = star.position(centerX: screenWidth/2, centerY: screenHeight/2)
+                        
                         Circle()
-                            .fill(Color.white.opacity(0.9))
-                            .frame(width: 1.2, height: 1.2)
-                            .position(starPoints[i])
-                    }
-                    
-                    // little stars - size 2
-                    ForEach(0..<starPoints2.count, id: \.self) { i in
-                        Circle()
-                            .fill(Color.white.opacity(0.9))
-                            .frame(width: 2, height: 2)
-                            .position(starPoints2[i])
+                            .fill(Color.white.opacity(star.currentOpacity))
+                            .frame(width: star.currentSize, height: star.currentSize)
+                            .position(starPosition)
+                            .blur(radius: star.distance < 50 ? 0.5 : 0) // Slight blur for very close stars
                     }
                     
                     VStack {
@@ -151,7 +182,7 @@ struct MainMenuView: View {
                                             }
                                         }
                                         .onEnded { _ in
-    //                                        HapticManager.stopAllHaptics()
+                                            //                                        HapticManager.stopAllHaptics()
                                             isPressing = false
                                             holdWork?.cancel()
                                             holdWork = nil
@@ -208,23 +239,32 @@ struct MainMenuView: View {
                         }
                         .tabViewStyle(.page(indexDisplayMode: .never))
                         .position(x: screenWidth/2, y: screenHeight/2)
-
+                        
                     }
                 }
                 .onAppear {
-                    // generate stars
-                    if !didMakeStars {
-                        let w = UIScreen.main.bounds.width
-                        let h = UIScreen.main.bounds.height
-                        starPoints = (0..<100).map { _ in
-                            CGPoint(x: CGFloat.random(in: 0...w),
-                                    y: CGFloat.random(in: 0...h))
+                    // Generate initial stars with staggered distances for continuous flow
+                    if stars.isEmpty {
+                        stars = (0..<starCount).map { index in
+                            var star = Star()
+                            // Stagger initial distances so stars appear continuously
+                            star.distance = CGFloat(index) * 5.0 + CGFloat.random(in: 1...20)
+                            return star
                         }
-                        starPoints2 = (0..<20).map { _ in
-                            CGPoint(x: CGFloat.random(in: 0...w),
-                                    y: CGFloat.random(in: 0...h))
+                    }
+                }
+                .onReceive(timer) { _ in
+                    // Animate stars moving outward from center
+                    for i in stars.indices {
+                        // Move star outward along its angle
+                        stars[i].distance += stars[i].speed / 60.0 // 60 FPS
+                        
+                        // Reset star when it moves too far off screen
+                        let maxDistance = sqrt(pow(screenWidth, 2) + pow(screenHeight, 2)) + 100
+                        if stars[i].distance > maxDistance {
+                            // Create new star at center with random direction
+                            stars[i] = Star()
                         }
-                        didMakeStars = true
                     }
                 }
                 .background {
@@ -240,9 +280,9 @@ struct MainMenuView: View {
                     } else if selection == 1 {
                         LinearGradient(
                             stops: [
-                            Gradient.Stop(color: Color(red: 0.05, green: 0.05, blue: 0.05), location: 0.00),
-                            Gradient.Stop(color: Color(red: 0.23, green: 0.07, blue: 0.4).opacity(0.7), location: 0.57),
-                            Gradient.Stop(color: Color(red: 1, green: 0.73, blue: 0.9).opacity(0.9), location: 1.00),
+                                Gradient.Stop(color: Color(red: 0.05, green: 0.05, blue: 0.05), location: 0.00),
+                                Gradient.Stop(color: Color(red: 0.23, green: 0.07, blue: 0.4).opacity(0.7), location: 0.57),
+                                Gradient.Stop(color: Color(red: 1, green: 0.73, blue: 0.9).opacity(0.9), location: 1.00),
                             ],
                             startPoint: UnitPoint(x: 0.1, y: -0.02),
                             endPoint: UnitPoint(x: 1.18, y: 2.00)
@@ -250,9 +290,9 @@ struct MainMenuView: View {
                     } else if selection == 2 {
                         LinearGradient(
                             stops: [
-                            Gradient.Stop(color: Color(red: 0.1, green: 0.1, blue: 0.1), location: 0.00),
-                            Gradient.Stop(color: Color(red: 0, green: 0.5, blue: 0.8).opacity(0.8), location: 1),
-//                            Gradient.Stop(color: Color(red: 0, green: 0.5, blue: 0.8).opacity(0.4), location: 1),
+                                Gradient.Stop(color: Color(red: 0.1, green: 0.1, blue: 0.1), location: 0.00),
+                                Gradient.Stop(color: Color(red: 0, green: 0.5, blue: 0.8).opacity(0.8), location: 1),
+                                //                            Gradient.Stop(color: Color(red: 0, green: 0.5, blue: 0.8).opacity(0.4), location: 1),
                             ],
                             startPoint: UnitPoint(x: 0.1, y: -0.02),
                             endPoint: UnitPoint(x: 1.3, y: 2)
@@ -273,7 +313,7 @@ struct MainMenuView: View {
         }
     }
     
-
+    
     // haptics
     func triggerHaptic(for circle: String) {
         switch circle {
