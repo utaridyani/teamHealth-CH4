@@ -9,29 +9,81 @@
 
 import SwiftUI
 
+// MARK: - Star Model for Animation
+struct Star: Identifiable {
+    let id = UUID()
+    var angle: CGFloat
+    var distance: CGFloat
+    var speed: CGFloat
+    var baseSize: CGFloat
+    
+    init() {
+        self.angle = CGFloat.random(in: 0...(2 * .pi))
+        self.distance = 1.0
+        self.speed = CGFloat.random(in: 50...150)
+        self.baseSize = CGFloat.random(in: 0.5...2.0)
+    }
+    
+    func position(centerX: CGFloat, centerY: CGFloat) -> CGPoint {
+        return CGPoint(
+            x: centerX + cos(angle) * distance,
+            y: centerY + sin(angle) * distance
+        )
+    }
+    
+    var currentSize: CGFloat {
+        return baseSize * min(distance / 100, 3.0)
+    }
+    
+    var currentOpacity: Double {
+        let maxDistance: CGFloat = 400
+        let opacity = min(distance / maxDistance, 1.0)
+        return Double(max(0.1, opacity))
+    }
+}
+
+// MARK: - Bubble Model
+struct TouchBubble: Identifiable {
+    let id = UUID()
+    var position: CGPoint
+    var velocity: CGVector
+    var baseSize: CGFloat = 60
+    var breathingPhase: CGFloat = 0
+    var breathingSpeed: CGFloat = 1.0
+    var opacity: Double = 0.6
+    var color: Color = .red
+    var touchID: Int
+    
+    var currentSize: CGFloat {
+        let breathingMultiplier: CGFloat = 0.3
+        let breathing = sin(breathingPhase) * breathingMultiplier + 1.0
+        return baseSize * breathing
+    }
+    
+    var radius: CGFloat { currentSize / 2 }
+}
+
 struct MainMenuView: View {
     @EnvironmentObject var selectedHaptic: SelectedHaptic
-    @StateObject private var bubbleManager = BubblePhysicsManager()
     
-    // Sphere selection state
+    // Circle selection state
     @State private var selection = 0
-    @State private var currentSphereType: SphereType = .dawn
     @State private var isPressing = false
     @State private var holdWork: DispatchWorkItem? = nil
     @State private var lastHapticTime: Date = .distantPast
-    
-    // Sphere animation states
-    @State private var sphereScale: CGFloat = 1.0
-    @State private var sphereGlowIntensity: Double = AnimationConstants.sphereGlowIntensity
+    let hapticInterval: TimeInterval = 0.2
     
     // Expanded mode state
     @State private var isExpanded = false
+    @State private var expandedColor: Color = .red
+    @State private var expandedCircle: String = "circle0"
     
     // Star animation
     @State private var stars: [Star] = []
     private let starCount = 100
     
-    // Touch tracking
+    // Bubble animation for expanded mode
+    @State private var touchBubbles: [TouchBubble] = []
     @State private var touches: [Int: CGPoint] = [:]
     @State private var lastTimes: [Int: Date] = [:]
     
@@ -40,7 +92,15 @@ struct MainMenuView: View {
     @State private var threeStartPositions: [Int:CGPoint] = [:]
     @State private var threeHoldWork: DispatchWorkItem?
     @State private var threeFingersHold = false
+    let threeHoldDuration: TimeInterval = 2.0
     let threeMoveTolerance: CGFloat = 30
+    
+    // Physics constants for bubbles
+    private let bubbleCount = 8
+    private let pullStrength: CGFloat = 1.2
+    private let damping: CGFloat = 0.88
+    private let maxSpeed: CGFloat = 12
+    private let orbitSpeed: CGFloat = 0.7
     
     // Timers
     private let starTimer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
@@ -52,55 +112,46 @@ struct MainMenuView: View {
         
         GeometryReader { geo in
             ZStack {
-                // Background gradient - always visible
-                currentSphereType.backgroundGradient
+                // Background gradient
+                backgroundGradient
                     .ignoresSafeArea()
                 
-                // Animated stars - always visible
-                ForEach(stars) { star in
-                    let starPosition = star.position(centerX: screenWidth/2, centerY: screenHeight/2)
-                    
-                    Circle()
-                        .fill(Color.white.opacity(star.currentOpacity))
-                        .frame(width: star.currentSize, height: star.currentSize)
-                        .position(starPosition)
-                        .blur(radius: star.distance < 50 ? 0.5 : 0)
-                }
-                
                 if !isExpanded {
-                    // Sphere selection mode
-                    VStack {
-                        Spacer()
+                    // Circle selection mode with stars
+                    ZStack {
+                        // Animated stars
+                        ForEach(stars) { star in
+                            let starPosition = star.position(centerX: screenWidth/2, centerY: screenHeight/2)
+                            
+                            Circle()
+                                .fill(Color.white.opacity(star.currentOpacity))
+                                .frame(width: star.currentSize, height: star.currentSize)
+                                .position(starPosition)
+                                .blur(radius: star.distance < 50 ? 0.5 : 0)
+                        }
                         
+                        // Circle selection
                         TabView(selection: $selection) {
-                            ForEach(SphereType.allCases, id: \.rawValue) { sphereType in
-                                VStack(spacing: 40) {
-                                    GlowingSphereView(
-                                        sphereType: sphereType,
-                                        isActive: currentSphereType == sphereType,
-                                        scale: $sphereScale,
-                                        glowIntensity: $sphereGlowIntensity
-                                    )
-                                    .gesture(createSphereGesture(for: sphereType))
-                                    
-                                    SphereLabelView(
-                                        sphereType: sphereType,
-                                        isExpanded: isExpanded
-                                    )
-                                }
-                                .tag(sphereType.rawValue)
+                            ForEach(0..<3) { index in
+                                Circle()
+                                    .fill(circleColor(for: index))
+                                    .frame(width: geo.size.width/2, height: geo.size.height/3)
+                                    .tag(index)
+                                    .contentShape(Circle())
+                                    .gesture(createCircleGesture(for: index))
                             }
                         }
                         .tabViewStyle(.page(indexDisplayMode: .never))
-                        .frame(height: geo.size.height * 0.6)
-                        
-                        Spacer()
+                        .position(x: screenWidth/2, y: screenHeight/2)
                     }
                     .transition(.scale.combined(with: .opacity))
                     
                 } else {
                     // Expanded bubble mode
                     ZStack {
+                        Color.white.opacity(0.1)
+                            .ignoresSafeArea()
+                        
                         // Multitouch tracker
                         MultiTouchView(
                             onChange: { newTouches in
@@ -111,11 +162,9 @@ struct MainMenuView: View {
                                 // Three finger swipe right to go back
                                 withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                                     isExpanded = false
-                                    bubbleManager.clearAll()
+                                    touchBubbles.removeAll()
                                     touches.removeAll()
                                     threeFingersHold = false
-                                    sphereScale = 1.0
-                                    sphereGlowIntensity = AnimationConstants.sphereGlowIntensity
                                 }
                                 HapticManager.selection()
                             }
@@ -123,23 +172,12 @@ struct MainMenuView: View {
                         .ignoresSafeArea()
                         
                         // Animated bubbles
-                        ForEach(bubbleManager.touchBubbles) { bubble in
+                        ForEach(touchBubbles) { bubble in
                             Circle()
-                                .fill(
-                                    RadialGradient(
-                                        colors: [
-                                            bubble.color.opacity(bubble.opacity * 1.2),
-                                            bubble.color.opacity(bubble.opacity * 0.8),
-                                            bubble.color.opacity(bubble.opacity * 0.4)
-                                        ],
-                                        center: .center,
-                                        startRadius: 5,
-                                        endRadius: bubble.radius
-                                    )
-                                )
+                                .fill(bubble.color.opacity(bubble.opacity))
                                 .frame(width: bubble.currentSize, height: bubble.currentSize)
                                 .position(bubble.position)
-                                .blur(radius: 3)
+                                .blur(radius: 6)
                                 .shadow(color: bubble.color.opacity(0.6), radius: 8)
                                 .allowsHitTesting(false)
                                 .animation(.easeOut(duration: 0.1), value: bubble.position)
@@ -149,14 +187,11 @@ struct MainMenuView: View {
                         if threeFingersHold {
                             VStack {
                                 Text("Swipe right to go back")
-                                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                                    .font(.headline)
                                     .foregroundColor(.white)
                                     .padding()
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 15)
-                                            .fill(Color.black.opacity(0.7))
-                                            .blur(radius: 1)
-                                    )
+                                    .background(Color.black.opacity(0.7))
+                                    .cornerRadius(10)
                                 Spacer()
                             }
                             .padding(.top, 50)
@@ -171,65 +206,69 @@ struct MainMenuView: View {
             }
             .onAppear {
                 initializeStars()
-                currentSphereType = SphereType(rawValue: selection) ?? .dawn
-            }
-            .onChange(of: selection) { newValue in
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    currentSphereType = SphereType(rawValue: newValue) ?? .dawn
-                }
             }
             .onReceive(starTimer) { _ in
-                updateStars()
+                if !isExpanded {
+                    updateStars()
+                }
             }
             .onReceive(bubbleTimer) { _ in
                 if isExpanded {
-                    bubbleManager.updatePhysics()
+                    updateBubblePhysics()
                 }
             }
         }
         .navigationBarBackButtonHidden()
     }
     
-    // MARK: - Sphere Gesture
-    private func createSphereGesture(for sphereType: SphereType) -> some Gesture {
+    // MARK: - Circle Management
+    private func circleColor(for index: Int) -> Color {
+        switch index {
+        case 0: return .red
+        case 1: return .blue
+        case 2: return .green
+        default: return .gray
+        }
+    }
+    
+    private func createCircleGesture(for index: Int) -> some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { _ in
                 if !isPressing {
                     isPressing = true
+                    let color = circleColor(for: index)
+                    let circle = "circle\(index)"
                     
-                    // Initial haptic and animation
-                    triggerHaptic(for: sphereType.hapticID)
+                    // Initial haptic
+                    triggerHaptic(for: circle)
                     
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        sphereScale = 0.9
-                        sphereGlowIntensity = 1.2
-                    }
-                    
-                    // Hold to expand
+                    // Hold for 3 seconds to expand
                     let work = DispatchWorkItem {
-                        print("Expanding sphere \(sphereType.name)")
+                        print("Expanding circle \(index)")
                         
                         // Save selection
-                        selectedHaptic.selectedCircle = sphereType.hapticID
-                        selectedHaptic.selectedColor = sphereType.baseColor
+                        selectedHaptic.selectedCircle = circle
+                        selectedHaptic.selectedColor = color
+                        expandedColor = color
+                        expandedCircle = circle
                         
-                        // Success haptic
+                        // Haptic feedback
                         HapticManager.notification(.success)
                         
-                        // Expand animation
+                        // Expand with animation
                         withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
                             isExpanded = true
                         }
                     }
                     holdWork = work
-                    DispatchQueue.main.asyncAfter(deadline: .now() + AnimationConstants.sphereHoldDuration, execute: work)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: work)
                     
                 } else {
                     // Continuous haptic while holding
                     let now = Date()
-                    if now.timeIntervalSince(lastHapticTime) > AnimationConstants.hapticInterval {
+                    if now.timeIntervalSince(lastHapticTime) > hapticInterval {
                         lastHapticTime = now
-                        triggerHaptic(for: sphereType.hapticID)
+                        triggerHaptic(for: "circle\(index)")
                     }
                 }
             }
@@ -237,32 +276,24 @@ struct MainMenuView: View {
                 isPressing = false
                 holdWork?.cancel()
                 holdWork = nil
-                
-                // Restore scale if not expanded
-                if !isExpanded {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                        sphereScale = 1.0
-                        sphereGlowIntensity = AnimationConstants.sphereGlowIntensity
-                    }
-                }
             }
     }
     
     // MARK: - Touch Handling for Expanded Mode
     private func handleTouchChange(_ newTouches: [Int: CGPoint]) {
         touches = newTouches
-        bubbleManager.updateTouches(newTouches, sphereType: currentSphereType)
+        updateBubblesForTouches(newTouches)
         
         let now = Date()
         let screenHeight = UIScreen.main.bounds.height
         
         // Haptic feedback for touches
         for (id, point) in newTouches {
-            if now.timeIntervalSince(lastTimes[id] ?? .distantPast) > AnimationConstants.hapticInterval {
+            if now.timeIntervalSince(lastTimes[id] ?? .distantPast) > hapticInterval {
                 lastTimes[id] = now
                 
                 if let a = area(for: point.y, totalHeight: screenHeight) {
-                    triggerHapticByCircle(for: currentSphereType.hapticID, area: a)
+                    triggerHapticByCircle(for: expandedCircle, area: a)
                 }
             }
         }
@@ -292,7 +323,7 @@ struct MainMenuView: View {
                     }
                 }
                 threeHoldWork = work
-                DispatchQueue.main.asyncAfter(deadline: .now() + AnimationConstants.threeFingerHoldDuration, execute: work)
+                DispatchQueue.main.asyncAfter(deadline: .now() + threeHoldDuration, execute: work)
             }
         } else {
             threeHoldWork?.cancel()
@@ -305,6 +336,144 @@ struct MainMenuView: View {
                 }
             }
         }
+    }
+    
+    // MARK: - Bubble Management
+    private func updateBubblesForTouches(_ newTouches: [Int: CGPoint]) {
+        let currentTouchIDs = Set(newTouches.keys)
+        let bubbleTouchIDs = Set(touchBubbles.map { $0.touchID })
+        
+        // Remove bubbles for ended touches
+        let touchesToRemove = bubbleTouchIDs.subtracting(currentTouchIDs)
+        if !touchesToRemove.isEmpty {
+            withAnimation(.easeOut(duration: 0.3)) {
+                touchBubbles.removeAll { touchesToRemove.contains($0.touchID) }
+            }
+        }
+        
+        // Add bubbles for new touches (limit to first 2)
+        let newTouchIDs = currentTouchIDs.subtracting(bubbleTouchIDs)
+        for touchID in Array(newTouchIDs.prefix(2)) {
+            if let touchPosition = newTouches[touchID] {
+                spawnBubblesForTouch(touchID: touchID, position: touchPosition)
+            }
+        }
+    }
+    
+    private func spawnBubblesForTouch(touchID: Int, position: CGPoint) {
+        for _ in 0..<bubbleCount {
+            let angle = Double.random(in: 0..<2 * .pi)
+            let burstSpeed = CGFloat.random(in: 8...15)
+            let initialVelocity = CGVector(
+                dx: cos(Double(angle)) * burstSpeed,
+                dy: sin(Double(angle)) * burstSpeed
+            )
+            
+            let bubble = TouchBubble(
+                position: position,
+                velocity: initialVelocity,
+                baseSize: CGFloat.random(in: 50...70),
+                breathingPhase: CGFloat.random(in: 0...2 * .pi),
+                breathingSpeed: CGFloat.random(in: 0.8...1.5),
+                opacity: Double.random(in: 0.4...0.8),
+                color: expandedColor,
+                touchID: touchID
+            )
+            
+            touchBubbles.append(bubble)
+        }
+    }
+    
+    private func updateBubblePhysics() {
+        guard !touchBubbles.isEmpty else { return }
+        
+        for i in touchBubbles.indices {
+            var bubble = touchBubbles[i]
+            
+            // Update breathing
+            bubble.breathingPhase += 0.1 * bubble.breathingSpeed
+            
+            if let touchPosition = touches[bubble.touchID] {
+                // Calculate forces
+                let gravityForce = calculateGravityForce(from: bubble.position, to: touchPosition)
+                let orbitalForce = calculateOrbitalForce(from: bubble.position, around: touchPosition)
+                let chaosForce = CGVector(
+                    dx: CGFloat.random(in: -0.8...0.8),
+                    dy: CGFloat.random(in: -0.8...0.8)
+                )
+                let repulsionForce = calculateBubbleRepulsion(for: bubble, in: touchBubbles)
+                
+                // Apply forces
+                bubble.velocity.dx += gravityForce.dx * 0.7 + orbitalForce.dx * 0.2 + chaosForce.dx + repulsionForce.dx * 0.3
+                bubble.velocity.dy += gravityForce.dy * 0.7 + orbitalForce.dy * 0.2 + chaosForce.dy + repulsionForce.dy * 0.3
+                
+                // Damping
+                bubble.velocity.dx *= damping
+                bubble.velocity.dy *= damping
+                
+                // Speed limit
+                let speed = hypot(bubble.velocity.dx, bubble.velocity.dy)
+                if speed > maxSpeed {
+                    let scale = maxSpeed / speed
+                    bubble.velocity.dx *= scale
+                    bubble.velocity.dy *= scale
+                }
+                
+                // Update position
+                let screenBounds = UIScreen.main.bounds
+                bubble.position.x = max(bubble.radius, min(screenBounds.width - bubble.radius, bubble.position.x + bubble.velocity.dx))
+                bubble.position.y = max(bubble.radius, min(screenBounds.height - bubble.radius, bubble.position.y + bubble.velocity.dy))
+            }
+            
+            touchBubbles[i] = bubble
+        }
+    }
+    
+    // MARK: - Physics Helpers
+    private func calculateGravityForce(from position: CGPoint, to center: CGPoint) -> CGVector {
+        let dx = center.x - position.x
+        let dy = center.y - position.y
+        let distance = max(1, hypot(dx, dy))
+        
+        return CGVector(
+            dx: (dx / distance) * pullStrength,
+            dy: (dy / distance) * pullStrength
+        )
+    }
+    
+    private func calculateOrbitalForce(from position: CGPoint, around center: CGPoint) -> CGVector {
+        let dx = position.x - center.x
+        let dy = position.y - center.y
+        let distance = max(1, hypot(dx, dy))
+        
+        return CGVector(
+            dx: -dy / distance * orbitSpeed,
+            dy: dx / distance * orbitSpeed
+        )
+    }
+    
+    private func calculateBubbleRepulsion(for targetBubble: TouchBubble, in allBubbles: [TouchBubble]) -> CGVector {
+        var repulsionForce = CGVector.zero
+        
+        for bubble in allBubbles {
+            guard bubble.id != targetBubble.id else { continue }
+            
+            let dx = targetBubble.position.x - bubble.position.x
+            let dy = targetBubble.position.y - bubble.position.y
+            let distance = hypot(dx, dy)
+            
+            let repulsionRadius: CGFloat = 80
+            if distance < repulsionRadius && distance > 1 {
+                let normalizedDx = dx / distance
+                let normalizedDy = dy / distance
+                let strength = 0.5 * (repulsionRadius - distance) / repulsionRadius
+                
+                repulsionForce.dx += normalizedDx * strength
+                repulsionForce.dy += normalizedDy * strength
+            }
+        }
+        
+        return repulsionForce
     }
     
     // MARK: - Star Management
@@ -382,6 +551,47 @@ struct MainMenuView: View {
             }
         default:
             break
+        }
+    }
+    
+    // MARK: - Background Gradient
+    private var backgroundGradient: some View {
+        Group {
+            if isExpanded {
+                // White background for bubble mode
+                Color.white
+            } else {
+                // Dynamic gradient based on selection
+                if selection == 0 {
+                    LinearGradient(
+                        stops: [
+                            Gradient.Stop(color: Color(red: 0.1, green: 0.1, blue: 0.1), location: 0.00),
+                            Gradient.Stop(color: Color(red: 1, green: 0.76, blue: 0.32), location: 1.00),
+                        ],
+                        startPoint: UnitPoint(x: 0.1, y: -0.02),
+                        endPoint: UnitPoint(x: 1.18, y: 3.00)
+                    )
+                } else if selection == 1 {
+                    LinearGradient(
+                        stops: [
+                            Gradient.Stop(color: Color(red: 0.05, green: 0.05, blue: 0.05), location: 0.00),
+                            Gradient.Stop(color: Color(red: 0.23, green: 0.07, blue: 0.4).opacity(0.7), location: 0.57),
+                            Gradient.Stop(color: Color(red: 1, green: 0.73, blue: 0.9).opacity(0.9), location: 1.00),
+                        ],
+                        startPoint: UnitPoint(x: 0.1, y: -0.02),
+                        endPoint: UnitPoint(x: 1.18, y: 2.00)
+                    )
+                } else {
+                    LinearGradient(
+                        stops: [
+                            Gradient.Stop(color: Color(red: 0.1, green: 0.1, blue: 0.1), location: 0.00),
+                            Gradient.Stop(color: Color(red: 0, green: 0.5, blue: 0.8).opacity(0.8), location: 1),
+                        ],
+                        startPoint: UnitPoint(x: 0.1, y: -0.02),
+                        endPoint: UnitPoint(x: 1.3, y: 2)
+                    )
+                }
+            }
         }
     }
 }
