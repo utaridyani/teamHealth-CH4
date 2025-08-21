@@ -5,7 +5,6 @@
 //  Created by Zap on 21/08/25.
 //
 
-
 import SwiftUI
 
 struct GlowingSphereView: View {
@@ -16,6 +15,7 @@ struct GlowingSphereView: View {
     
     @State private var pulseAnimation = false
     @State private var rotationAngle: Double = 0
+    @State private var breathingPhase: CGFloat = 0
     
     var body: some View {
         ZStack {
@@ -42,7 +42,7 @@ struct GlowingSphereView: View {
                 }
             }
             
-            // Main sphere
+            // Main sphere with bouncy breathing
             ZStack {
                 // Base sphere with gradient
                 Circle()
@@ -86,7 +86,7 @@ struct GlowingSphereView: View {
                     )
             }
             .frame(width: 220, height: 220)
-            .scaleEffect(scale)
+            .scaleEffect(scale * (1.0 + sin(breathingPhase) * 0.06))
             
             // Outer glow effect
             Circle()
@@ -103,7 +103,7 @@ struct GlowingSphereView: View {
                     )
                 )
                 .frame(width: 260, height: 260)
-                .scaleEffect(scale)
+                .scaleEffect(scale * (1.0 + sin(breathingPhase) * 0.04))
                 .opacity(glowIntensity)
                 .blur(radius: 10)
         }
@@ -118,6 +118,9 @@ struct GlowingSphereView: View {
             if newValue {
                 startAnimations()
             }
+        }
+        .onReceive(Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()) { _ in
+            breathingPhase += 0.025
         }
     }
     

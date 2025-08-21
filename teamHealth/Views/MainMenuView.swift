@@ -1,4 +1,3 @@
-//
 //  MainMenuView.swift
 //  test_haptics
 //
@@ -14,7 +13,7 @@ struct MainMenuView: View {
     
     // Sphere selection state
     @State private var selection = 0
-    @State private var currentSphereType: SphereType = .dawn
+    @State private var currentSphereType: SphereType
     @State private var isPressing = false
     @State private var holdWork: DispatchWorkItem? = nil
     @State private var lastHapticTime: Date = .distantPast
@@ -26,8 +25,8 @@ struct MainMenuView: View {
     // Expanded mode state
     @State private var isExpanded = false
     
-    // Star animation
-    @State private var stars: [Star] = []
+    // Star animation - can inherit from onboarding
+    @State private var stars: [Star]
     private let starCount = 100
     
     // Touch tracking
@@ -45,6 +44,23 @@ struct MainMenuView: View {
     private let starTimer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
     private let bubbleTimer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
     
+    // Initializer to support inherited stars or create new ones
+    init(inheritedStars: [Star] = [], initialSphereType: SphereType = .dawn) {
+        if inheritedStars.isEmpty {
+            // Create new stars if none inherited
+            self._stars = State(initialValue: (0..<100).map { index in
+                var star = Star()
+                star.distance = CGFloat(index) * 5.0 + CGFloat.random(in: 1...20)
+                return star
+            })
+        } else {
+            // Use inherited stars from onboarding
+            self._stars = State(initialValue: inheritedStars)
+        }
+        self._currentSphereType = State(initialValue: initialSphereType)
+        self._selection = State(initialValue: initialSphereType.rawValue)
+    }
+    
     var body: some View {
         let screenWidth = UIScreen.main.bounds.width
         let screenHeight = UIScreen.main.bounds.height
@@ -55,7 +71,7 @@ struct MainMenuView: View {
                 currentSphereType.backgroundGradient
                     .ignoresSafeArea()
                 
-                // Animated stars - always visible
+                // Animated stars - continue from onboarding or create new
                 ForEach(stars) { star in
                     let starPosition = star.position(centerX: screenWidth/2, centerY: screenHeight/2)
                     
@@ -169,7 +185,10 @@ struct MainMenuView: View {
                 }
             }
             .onAppear {
-                initializeStars()
+                // Only initialize stars if they're empty (not inherited)
+                if stars.isEmpty {
+                    initializeStars()
+                }
                 currentSphereType = SphereType(rawValue: selection) ?? .dawn
             }
             .onChange(of: selection) { newValue in
@@ -199,12 +218,12 @@ struct MainMenuView: View {
                     // Initial haptic and animation
                     triggerHaptic(for: sphereType.hapticID)
                     
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        sphereScale = 0.9
-                        sphereGlowIntensity = 1.2
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.6, blendDuration: 0)) {
+                        sphereScale = 0.85
+                        sphereGlowIntensity = 1.3
                     }
                     
-                    // Hold to expand
+                    // Hold to expand - same animation as onboarding but no burst
                     let work = DispatchWorkItem {
                         print("Expanding sphere \(sphereType.name)")
                         
@@ -215,9 +234,17 @@ struct MainMenuView: View {
                         // Success haptic
                         HapticManager.notification(.success)
                         
-                        // Expand animation
-                        withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
-                            isExpanded = true
+                        // Shrink sphere like onboarding, then expand mode
+                        withAnimation(.easeIn(duration: 0.3)) {
+                            sphereScale = 0.1
+                        }
+                        
+                        // Wait for shrink, then expand to bubble mode
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                                self.isExpanded = true
+                                self.sphereScale = 1.0
+                            }
                         }
                     }
                     holdWork = work
