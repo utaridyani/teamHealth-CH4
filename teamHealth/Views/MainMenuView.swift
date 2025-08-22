@@ -287,6 +287,20 @@ struct MainMenuView: View {
             if now.timeIntervalSince(lastTimes[id] ?? .distantPast) > AnimationConstants.hapticInterval {
                 lastTimes[id] = now
                 
+                // Bubble Hit Detection
+                for bubble in bubbleManager.touchBubbles {
+                                let dx = point.x - bubble.position.x
+                                let dy = point.y - bubble.position.y
+                                let distance = sqrt(dx*dx + dy*dy)
+                                
+                                if distance <= bubble.currentSize / 2 {
+                                    // Finger is inside bubble
+                                    let dir = direction(for: point, in: UIScreen.main.bounds)
+                                    playDirectionalBubbleHaptic(dir)
+                                    break // stop after first hit
+                                }
+                            }
+                
                 if let a = area(for: point.y, totalHeight: screenHeight) {
                     triggerHapticByCircle(for: currentSphereType.hapticID, area: a)
                 }
@@ -333,6 +347,19 @@ struct MainMenuView: View {
         }
     }
     
+    // MARK: - Direction helper
+    private func direction(for point: CGPoint, in bounds: CGRect) -> String {
+        let third = bounds.width / 3
+        switch point.x {
+        case 0..<third:
+            return "left"
+        case third..<third*2:
+            return "center"
+        default:
+            return "right"
+        }
+    }
+    
     // MARK: - Star Management
     private func initializeStars() {
         if stars.isEmpty {
@@ -370,14 +397,28 @@ struct MainMenuView: View {
         }
     }
     
+    func playDirectionalBubbleHaptic(_ dir: String) {
+        switch dir {
+        case "left":
+            HapticManager.playAHAP(named: "bubble_pop_left")
+        case "center":
+            HapticManager.playAHAP(named: "bubble_pop")
+        case "right":
+            HapticManager.playAHAP(named: "bubble_pop_right")
+        default:
+            break
+        }
+    }
+
+    
     func triggerHaptic(for circle: String) {
         switch circle {
         case "circle0":
-            HapticManager.playAHAP(named: "bubble")
+            HapticManager.playAHAP(named: "dawn")
         case "circle1":
-            HapticManager.playAHAP(named: "heavy50")
+            HapticManager.playAHAP(named: "twilight")
         case "circle2":
-            HapticManager.playAHAP(named: "heavy75")
+            HapticManager.playAHAP(named: "reverie")
         default:
             break
         }
@@ -387,23 +428,23 @@ struct MainMenuView: View {
         switch circle {
         case "circle0":
             switch area {
-            case 0: HapticManager.playAHAP(named: "bubble")
-            case 1: HapticManager.playAHAP(named: "bubble_75")
-            case 2: HapticManager.playAHAP(named: "bubble_50")
+            case 0: HapticManager.playAHAP(named: "dawn")
+            case 1: HapticManager.playAHAP(named: "dawn")
+            case 2: HapticManager.playAHAP(named: "dawn")
             default: break
             }
         case "circle1":
             switch area {
-            case 0: HapticManager.playAHAP(named: "heavy50")
-            case 1: HapticManager.playAHAP(named: "heavy50_75")
-            case 2: HapticManager.playAHAP(named: "heavy50_50")
+            case 0: HapticManager.playAHAP(named: "twilight")
+            case 1: HapticManager.playAHAP(named: "twilight")
+            case 2: HapticManager.playAHAP(named: "twilight")
             default: break
             }
         case "circle2":
             switch area {
-            case 0: HapticManager.playAHAP(named: "heavy75")
-            case 1: HapticManager.playAHAP(named: "heavy75_75")
-            case 2: HapticManager.playAHAP(named: "heavy75_50")
+            case 0: HapticManager.playAHAP(named: "reverie")
+            case 1: HapticManager.playAHAP(named: "reverie")
+            case 2: HapticManager.playAHAP(named: "reverie")
             default: break
             }
         default:
