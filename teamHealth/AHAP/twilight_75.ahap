@@ -1,0 +1,45 @@
+{
+    "Version": 1.0,
+    "Metadata": {
+        "Project": "teamHealth",
+        "Created": "19 Aug 2025",
+        "Description": "Twilight pattern — soft fading beats with a gentle rhythmic pulse, max duration 0.5s."
+    },
+    "Pattern": [
+        {
+            "Event": {
+                "Time": 0.0,
+                "EventType": "HapticContinuous",
+                "EventDuration": 0.6,
+                "EventParameters": [
+                    { "ParameterID": "HapticIntensity", "ParameterValue": 0.375 },
+                    { "ParameterID": "HapticSharpness", "ParameterValue": 0.225 }
+                ]
+            }
+        },
+        {
+            "ParameterCurve": {
+                "ParameterID": "HapticIntensityControl",
+                "Time": 0.0,
+                "ParameterCurveControlPoints": [
+                    { "Time": 0.0, "ParameterValue": 0.4 },
+                    { "Time": 0.3, "ParameterValue": 0.6 },
+                    { "Time": 0.4, "ParameterValue": 0.4},
+                    { "Time": 0.6, "ParameterValue": 0.3 }
+                ]
+            }
+        },
+        {
+            "ParameterCurve": {
+                "ParameterID": "HapticSharpnessControl",
+                "Time": 0.0,
+                "ParameterCurveControlPoints": [
+                    { "Time": 0.0, "ParameterValue": 0.2 },
+                    { "Time": 0.3, "ParameterValue": 0.35 },
+                    { "Time": 0.4, "ParameterValue": 0.22 },
+                    { "Time": 0.6, "ParameterValue": 0.1 }
+                ]
+            }
+        }
+    ]
+}
