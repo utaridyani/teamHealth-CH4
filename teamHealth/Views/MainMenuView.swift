@@ -20,6 +20,12 @@ struct MainMenuView: View {
     // Sphere animation states
     @State private var sphereScale: CGFloat = 1.0
     @State private var sphereGlowIntensity: Double = AnimationConstants.sphereGlowIntensity
+    @State private var sphereBreathingPhase: CGFloat = 0
+    @State private var quickTapBreathing = false
+    
+    // Star burst effect for sphere selection
+    @State private var selectionBurstBubbles: [SelectionBurst] = []
+    @State private var showSelectionBurst = false
     
     // Expanded mode state
     @State private var isExpanded = false
@@ -100,7 +106,9 @@ struct MainMenuView: View {
                                         sphereType: sphereType,
                                         isActive: currentSphereType == sphereType,
                                         scale: $sphereScale,
-                                        glowIntensity: $sphereGlowIntensity
+                                        glowIntensity: $sphereGlowIntensity,
+                                        breathingPhase: currentSphereType == sphereType ? sphereBreathingPhase : 0,
+                                        useCustomBreathing: currentSphereType == sphereType && quickTapBreathing
                                     )
                                     .gesture(createSphereGesture(for: sphereType))
                                     
@@ -114,6 +122,28 @@ struct MainMenuView: View {
                         }
                         .tabViewStyle(.page(indexDisplayMode: .never))
                         .frame(height: geo.size.height * 0.6)
+                        
+                        // Star burst effect overlay
+                        if showSelectionBurst {
+                            ForEach(selectionBurstBubbles) { burst in
+                                Circle()
+                                    .fill(
+                                        RadialGradient(
+                                            colors: [
+                                                Color.white.opacity(burst.opacity),
+                                                burst.color.opacity(burst.opacity * 0.8),
+                                                Color.clear
+                                            ],
+                                            center: .center,
+                                            startRadius: 2,
+                                            endRadius: burst.radius
+                                        )
+                                    )
+                                    .frame(width: burst.currentSize, height: burst.currentSize)
+                                    .position(burst.position)
+                                    .blur(radius: 1)
+                            }
+                        }
                         
                         Spacer()
                     }
@@ -213,6 +243,19 @@ struct MainMenuView: View {
                     // Check for idle bubble collisions
                     checkIdleBubbleCollisions()
                 }
+                // Update star burst
+                updateSelectionBurst()
+                // Update breathing phase for quick tap
+                if quickTapBreathing {
+                    sphereBreathingPhase += 0.15
+                    if sphereBreathingPhase > .pi * 2 {
+                        sphereBreathingPhase = 0
+                        quickTapBreathing = false
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            sphereScale = 1.0
+                        }
+                    }
+                }
             }
             .onDisappear {
                 cleanupIdleDetection()
@@ -231,12 +274,21 @@ struct MainMenuView: View {
                     // Initial haptic and animation
                     triggerHaptic(for: sphereType.hapticID)
                     
+                    // Quick tap breathing effect
+                    quickTapBreathing = true
+                    sphereBreathingPhase = 0
+                    
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.6, blendDuration: 0)) {
                         sphereScale = 0.85
                         sphereGlowIntensity = 1.3
                     }
                     
-                    // Hold to expand - same animation as onboarding but no burst
+                    // Breathing animation synced with haptic
+                    withAnimation(.easeInOut(duration: 0.5)) {
+                        sphereScale = 0.9
+                    }
+                    
+                    // Hold to expand - same animation as onboarding but with star burst
                     let work = DispatchWorkItem {
                         print("Expanding sphere \(sphereType.name)")
                         
@@ -246,6 +298,9 @@ struct MainMenuView: View {
                         
                         // Success haptic
                         HapticManager.notification(.success)
+                        
+                        // Create star burst effect
+                        self.createSelectionStarBurst(for: sphereType)
                         
                         // Shrink sphere like onboarding, then expand mode
                         withAnimation(.easeIn(duration: 0.3)) {
@@ -257,6 +312,7 @@ struct MainMenuView: View {
                             withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
                                 self.isExpanded = true
                                 self.sphereScale = 1.0
+                                self.quickTapBreathing = false
                             }
                         }
                     }
@@ -277,14 +333,107 @@ struct MainMenuView: View {
                 holdWork?.cancel()
                 holdWork = nil
                 
-                // Restore scale if not expanded
-                if !isExpanded {
+                // If quick tap (not expanded), continue breathing animation
+                if !isExpanded && !quickTapBreathing {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                         sphereScale = 1.0
                         sphereGlowIntensity = AnimationConstants.sphereGlowIntensity
                     }
                 }
             }
+    }
+    
+    // MARK: - Star Burst Effect for Selection
+    private func createSelectionStarBurst(for sphereType: SphereType) {
+        let screenWidth = UIScreen.main.bounds.width
+        let centerX = screenWidth / 2
+        let centerY = UIScreen.main.bounds.height * 0.4 // Approximate sphere position
+        
+        selectionBurstBubbles = []
+        
+        // Create 5-pointed star burst pattern
+        let starPoints = 5
+        
+        // Main star rays
+        for point in 0..<starPoints {
+            let pointAngle = Double(point) * (2 * .pi / Double(starPoints))
+            
+            // Multiple bubbles per ray for fuller effect
+            for ray in 0..<6 {
+                let spreadAngle = pointAngle + Double.random(in: -0.1...0.1)
+                let speed = CGFloat(200 + ray * 40)
+                
+                let initialVelocity = CGVector(
+                    dx: cos(Double(spreadAngle)) * speed,
+                    dy: sin(Double(spreadAngle)) * speed
+                )
+                
+                let burst = SelectionBurst(
+                    position: CGPoint(x: centerX, y: centerY),
+                    velocity: initialVelocity,
+                    baseSize: CGFloat.random(in: 20...40),
+                    opacity: Double.random(in: 0.7...1.0),
+                    color: sphereType.baseColor
+                )
+                selectionBurstBubbles.append(burst)
+            }
+        }
+        
+        // Additional radial particles
+        for _ in 0..<15 {
+            let angle = Double.random(in: 0..<2 * .pi)
+            let speed = CGFloat.random(in: 100...250)
+            
+            let initialVelocity = CGVector(
+                dx: cos(Double(angle)) * speed,
+                dy: sin(Double(angle)) * speed
+            )
+            
+            let burst = SelectionBurst(
+                position: CGPoint(x: centerX, y: centerY),
+                velocity: initialVelocity,
+                baseSize: CGFloat.random(in: 15...30),
+                opacity: Double.random(in: 0.5...0.8),
+                color: sphereType.baseColor
+            )
+            selectionBurstBubbles.append(burst)
+        }
+        
+        // Start burst animation
+        withAnimation(.easeOut(duration: 0.2)) {
+            showSelectionBurst = true
+        }
+        
+        // Hide burst after animation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            showSelectionBurst = false
+            selectionBurstBubbles.removeAll()
+        }
+    }
+    
+    // MARK: - Update Selection Burst
+    private func updateSelectionBurst() {
+        guard showSelectionBurst else { return }
+        
+        for i in selectionBurstBubbles.indices {
+            var burst = selectionBurstBubbles[i]
+            
+            // Update position
+            burst.position.x += burst.velocity.dx * 0.016
+            burst.position.y += burst.velocity.dy * 0.016
+            
+            // Fade out
+            burst.opacity *= 0.97
+            
+            // Slow down
+            burst.velocity.dx *= 0.99
+            burst.velocity.dy *= 0.99
+            
+            selectionBurstBubbles[i] = burst
+        }
+        
+        // Remove faded bubbles
+        selectionBurstBubbles.removeAll { $0.opacity < 0.05 }
     }
     
     // MARK: - Touch Handling for Expanded Mode
@@ -530,28 +679,44 @@ struct MainMenuView: View {
         case "circle0":
             switch area {
             case 0: HapticManager.playAHAP(named: "dawn")
-            case 1: HapticManager.playAHAP(named: "dawn_75")
-            case 2: HapticManager.playAHAP(named: "dawn_50")
+            case 1: HapticManager.playAHAP(named: "dawn")
+            case 2: HapticManager.playAHAP(named: "dawn")
             default: break
             }
         case "circle1":
             switch area {
             case 0: HapticManager.playAHAP(named: "twilight")
-            case 1: HapticManager.playAHAP(named: "twilight_75")
-            case 2: HapticManager.playAHAP(named: "twilight_50")
+            case 1: HapticManager.playAHAP(named: "twilight")
+            case 2: HapticManager.playAHAP(named: "twilight")
             default: break
             }
         case "circle2":
             switch area {
             case 0: HapticManager.playAHAP(named: "reverie")
-            case 1: HapticManager.playAHAP(named: "reverie_75")
-            case 2: HapticManager.playAHAP(named: "reverie_50")
+            case 1: HapticManager.playAHAP(named: "reverie")
+            case 2: HapticManager.playAHAP(named: "reverie")
             default: break
             }
         default:
             break
         }
     }
+}
+
+// MARK: - Selection Burst Model
+struct SelectionBurst: Identifiable {
+    let id = UUID()
+    var position: CGPoint
+    var velocity: CGVector
+    var baseSize: CGFloat
+    var opacity: Double
+    var color: Color
+    
+    var currentSize: CGFloat {
+        return baseSize * CGFloat(opacity)
+    }
+    
+    var radius: CGFloat { currentSize / 2 }
 }
 
 #Preview {

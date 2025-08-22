@@ -12,10 +12,12 @@ struct GlowingSphereView: View {
     let isActive: Bool
     @Binding var scale: CGFloat
     @Binding var glowIntensity: Double
+    var breathingPhase: CGFloat = 0
+    var useCustomBreathing: Bool = false
     
     @State private var pulseAnimation = false
     @State private var rotationAngle: Double = 0
-    @State private var breathingPhase: CGFloat = 0
+    @State private var internalBreathingPhase: CGFloat = 0
     
     var body: some View {
         ZStack {
@@ -86,7 +88,7 @@ struct GlowingSphereView: View {
                     )
             }
             .frame(width: 220, height: 220)
-            .scaleEffect(scale * (1.0 + sin(breathingPhase) * 0.06))
+            .scaleEffect(scale * (1.0 + sin(useCustomBreathing ? breathingPhase : internalBreathingPhase) * (useCustomBreathing ? 0.12 : 0.06)))
             
             // Outer glow effect
             Circle()
@@ -103,7 +105,7 @@ struct GlowingSphereView: View {
                     )
                 )
                 .frame(width: 260, height: 260)
-                .scaleEffect(scale * (1.0 + sin(breathingPhase) * 0.04))
+                .scaleEffect(scale * (1.0 + sin(useCustomBreathing ? breathingPhase : internalBreathingPhase) * (useCustomBreathing ? 0.08 : 0.04)))
                 .opacity(glowIntensity)
                 .blur(radius: 10)
         }
@@ -120,7 +122,9 @@ struct GlowingSphereView: View {
             }
         }
         .onReceive(Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()) { _ in
-            breathingPhase += 0.025
+            if !useCustomBreathing {
+                internalBreathingPhase += 0.025
+            }
         }
     }
     
