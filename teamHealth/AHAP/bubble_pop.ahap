@@ -22,7 +22,7 @@
             "ParameterID": "HapticIntensityControl",
             "Time": 0.0,
             "ParameterCurveControlPoints": [
-                { "Time": 0.0, "ParameterValue": 1.0 },
+                { "Time": 0.0, "ParameterValue": 0.9 },
                 { "Time": 0.1, "ParameterValue": 0.75 },
                 { "Time": 0.15, "ParameterValue": 0.35 }
             ]

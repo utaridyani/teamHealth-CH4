@@ -1,0 +1,45 @@
+{
+  "Version": 1.0,
+  "Metadata": {
+    "Project": "teamHealth",
+    "Created": "21 Aug 2025",
+    "Description": "Reverie — slow, soothing wave oscillation over 1 second."
+  },
+  "Pattern": [
+    {
+      "Event": {
+        "Time": 0.0,
+        "EventType": "HapticContinuous",
+        "EventDuration": 1.0,
+        "EventParameters": [
+          { "ParameterID": "HapticIntensity", "ParameterValue": 0.2 },
+          { "ParameterID": "HapticSharpness", "ParameterValue": 0.125 }
+        ]
+      }
+    },
+    {
+      "ParameterCurve": {
+        "ParameterID": "HapticIntensityControl",
+        "Time": 0.0,
+        "ParameterCurveControlPoints": [
+          { "Time": 0.0, "ParameterValue": 0.25 },
+          { "Time": 0.25, "ParameterValue": 0.7 },
+          { "Time": 0.5, "ParameterValue": 0.4 },
+          { "Time": 0.75, "ParameterValue": 0.65 },
+          { "Time": 1.0, "ParameterValue": 0.25 }
+        ]
+      }
+    },
+    {
+      "ParameterCurve": {
+        "ParameterID": "HapticSharpnessControl",
+        "Time": 0.0,
+        "ParameterCurveControlPoints": [
+          { "Time": 0.0, "ParameterValue": 0.2 },
+          { "Time": 0.5, "ParameterValue": 0.35 },
+          { "Time": 1.0, "ParameterValue": 0.2 }
+        ]
+      }
+    }
+  ]
+}
