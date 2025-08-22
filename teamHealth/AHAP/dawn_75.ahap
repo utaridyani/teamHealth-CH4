@@ -24,7 +24,7 @@
             "EventDuration": 0.1,
             "EventParameters": [
                 { "ParameterID": "HapticIntensity", "ParameterValue": 0.3 },
-                { "ParameterID": "HapticSharpness", "ParameterValue": 0.1875 }
+                { "ParameterID": "HapticSharpness", "ParameterValue": 0.225 }
             ]
         }
     },
