@@ -4,7 +4,6 @@
 //  Created by Utari Dyani Laksmi on 14/08/25.
 //
 
-
 import SwiftUI
 
 struct MainMenuView: View {
@@ -32,6 +31,13 @@ struct MainMenuView: View {
     // Touch tracking
     @State private var touches: [Int: CGPoint] = [:]
     @State private var lastTimes: [Int: Date] = [:]
+    
+    // Idle detection for bubble haptics
+    @State private var idleTouchPositions: [Int: CGPoint] = [:]
+    @State private var idleTimers: [Int: Timer] = [:]
+    @State private var lastIdleHapticTime: Date = .distantPast
+    private let idleThreshold: CGFloat = 5.0 // Movement threshold to detect idle
+    private let idleHapticInterval: TimeInterval = 0.3 // Haptic interval when idle
     
     // Three finger hold to go back
     @State private var threeIDs: Set<Int> = []
@@ -131,6 +137,8 @@ struct MainMenuView: View {
                                     threeFingersHold = false
                                     sphereScale = 1.0
                                     sphereGlowIntensity = AnimationConstants.sphereGlowIntensity
+                                    // Clean up idle timers
+                                    cleanupIdleDetection()
                                 }
                                 HapticManager.selection()
                             }
@@ -202,7 +210,12 @@ struct MainMenuView: View {
             .onReceive(bubbleTimer) { _ in
                 if isExpanded {
                     bubbleManager.updatePhysics()
+                    // Check for idle bubble collisions
+                    checkIdleBubbleCollisions()
                 }
+            }
+            .onDisappear {
+                cleanupIdleDetection()
             }
         }
         .navigationBarBackButtonHidden()
@@ -276,35 +289,56 @@ struct MainMenuView: View {
     
     // MARK: - Touch Handling for Expanded Mode
     private func handleTouchChange(_ newTouches: [Int: CGPoint]) {
+        let previousTouches = touches
         touches = newTouches
         bubbleManager.updateTouches(newTouches, sphereType: currentSphereType)
         
         let now = Date()
         let screenHeight = UIScreen.main.bounds.height
         
-        // Haptic feedback for touches
+        // Process each touch
         for (id, point) in newTouches {
-            if now.timeIntervalSince(lastTimes[id] ?? .distantPast) > AnimationConstants.hapticInterval {
-                lastTimes[id] = now
+            // Check if touch moved or is idle
+            if let previousPoint = previousTouches[id] {
+                let dx = point.x - previousPoint.x
+                let dy = point.y - previousPoint.y
+                let movement = sqrt(dx*dx + dy*dy)
                 
-                // Bubble Hit Detection
-                for bubble in bubbleManager.touchBubbles {
-                                let dx = point.x - bubble.position.x
-                                let dy = point.y - bubble.position.y
-                                let distance = sqrt(dx*dx + dy*dy)
-                                
-                                if distance <= bubble.currentSize / 2 {
-                                    // Finger is inside bubble
-                                    let dir = direction(for: point, in: UIScreen.main.bounds)
-                                    playDirectionalBubbleHaptic(dir)
-                                    break // stop after first hit
-                                }
-                            }
-                
-                if let a = area(for: point.y, totalHeight: screenHeight) {
-                    triggerHapticByCircle(for: currentSphereType.hapticID, area: a)
+                if movement < idleThreshold {
+                    // Touch is idle or barely moving
+                    if idleTouchPositions[id] == nil {
+                        // Just became idle
+                        idleTouchPositions[id] = point
+                        startIdleHapticTimer(for: id, at: point)
+                    }
+                } else {
+                    // Touch is moving
+                    stopIdleHapticTimer(for: id)
+                    idleTouchPositions.removeValue(forKey: id)
+                    
+                    // Play movement haptics - use selected sphere haptics only
+                    if now.timeIntervalSince(lastTimes[id] ?? .distantPast) > AnimationConstants.hapticInterval {
+                        lastTimes[id] = now
+                        
+                        // Just play the selected sphere haptic based on vertical position
+                        if let a = area(for: point.y, totalHeight: screenHeight) {
+                            triggerHapticByCircle(for: currentSphereType.hapticID, area: a)
+                        }
+                    }
                 }
+            } else {
+                // New touch
+                idleTouchPositions[id] = point
+                startIdleHapticTimer(for: id, at: point)
             }
+        }
+        
+        // Clean up removed touches
+        let removedTouches = Set(previousTouches.keys).subtracting(Set(newTouches.keys))
+        for id in removedTouches {
+            stopIdleHapticTimer(for: id)
+            idleTouchPositions.removeValue(forKey: id)
+            lastTimes.removeValue(forKey: id)
         }
         
         // Three finger hold detection
@@ -345,6 +379,74 @@ struct MainMenuView: View {
                 }
             }
         }
+    }
+    
+    // MARK: - Idle Haptic Management
+    private func startIdleHapticTimer(for touchID: Int, at point: CGPoint) {
+        // Cancel existing timer if any
+        stopIdleHapticTimer(for: touchID)
+        
+        // Create repeating timer for idle haptics
+        let timer = Timer.scheduledTimer(withTimeInterval: idleHapticInterval, repeats: true) { _ in
+            self.playIdleHaptic(for: touchID, at: point)
+        }
+        idleTimers[touchID] = timer
+        
+        // Play initial haptic immediately
+        playIdleHaptic(for: touchID, at: point)
+    }
+    
+    private func stopIdleHapticTimer(for touchID: Int) {
+        idleTimers[touchID]?.invalidate()
+        idleTimers.removeValue(forKey: touchID)
+    }
+    
+    private func playIdleHaptic(for touchID: Int, at point: CGPoint) {
+        // Check if finger is on a bubble
+        for bubble in bubbleManager.touchBubbles {
+            let dx = point.x - bubble.position.x
+            let dy = point.y - bubble.position.y
+            let distance = sqrt(dx*dx + dy*dy)
+            
+            if distance <= bubble.currentSize / 2 {
+                // Finger is idle on a bubble
+                let dir = direction(for: point, in: UIScreen.main.bounds)
+                playDirectionalBubbleHaptic(dir)
+                return
+            }
+        }
+    }
+    
+    private func checkIdleBubbleCollisions() {
+        // Check idle touches against current bubble positions
+        for (touchID, point) in idleTouchPositions {
+            // Bubbles may have moved, so check collision again
+            var isOnBubble = false
+            for bubble in bubbleManager.touchBubbles {
+                let dx = point.x - bubble.position.x
+                let dy = point.y - bubble.position.y
+                let distance = sqrt(dx*dx + dy*dy)
+                
+                if distance <= bubble.currentSize / 2 {
+                    isOnBubble = true
+                    break
+                }
+            }
+            
+            // If idle touch moved off bubble, stop its timer
+            if !isOnBubble && idleTimers[touchID] != nil {
+                stopIdleHapticTimer(for: touchID)
+                // Restart timer in case it moves onto another bubble
+                startIdleHapticTimer(for: touchID, at: point)
+            }
+        }
+    }
+    
+    private func cleanupIdleDetection() {
+        for (id, _) in idleTimers {
+            stopIdleHapticTimer(for: id)
+        }
+        idleTouchPositions.removeAll()
     }
     
     // MARK: - Direction helper
@@ -409,7 +511,6 @@ struct MainMenuView: View {
             break
         }
     }
-
     
     func triggerHaptic(for circle: String) {
         switch circle {
