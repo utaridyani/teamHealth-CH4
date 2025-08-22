@@ -263,7 +263,7 @@ struct OnboardingView: View {
                     isPressing = true
                     
                     // Initial haptic and animation
-                    HapticManager.playAHAP(named: "bubble")
+                    HapticManager.playAHAP(named: "drum")
                     
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.6, blendDuration: 0)) {
                         sphereScale = 0.85
@@ -277,14 +277,14 @@ struct OnboardingView: View {
                         }
                     }
                     holdWork = work
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0, execute: work)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3.0, execute: work)
                     
                 } else if isPressing {
                     // Continuous haptic while holding
                     let now = Date()
                     if now.timeIntervalSince(lastHapticTime) > 0.2 {
                         lastHapticTime = now
-                        HapticManager.playAHAP(named: "bubble")
+                        HapticManager.playAHAP(named: "shockwave")
                     }
                 }
             }
