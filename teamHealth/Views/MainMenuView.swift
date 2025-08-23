@@ -52,6 +52,10 @@ struct MainMenuView: View {
     @State private var threeFingersHold = false
     let threeMoveTolerance: CGFloat = 30
     
+    // Carousel state for infinite scrolling
+    @State private var dragOffset: CGFloat = 0
+    @State private var currentIndex: Int = 0
+    
     // Timers
     private let starTimer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
     private let bubbleTimer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
@@ -71,6 +75,7 @@ struct MainMenuView: View {
         }
         self._currentSphereType = State(initialValue: initialSphereType)
         self._selection = State(initialValue: initialSphereType.rawValue)
+        self._currentIndex = State(initialValue: initialSphereType.rawValue)
     }
     
     var body: some View {
@@ -95,32 +100,23 @@ struct MainMenuView: View {
                 }
                 
                 if !isExpanded {
-                    // Sphere selection mode
+                    // Enhanced sphere carousel with side preview
                     VStack {
                         Spacer()
                         
-                        TabView(selection: $selection) {
-                            ForEach(SphereType.allCases, id: \.rawValue) { sphereType in
-                                VStack(spacing: 40) {
-                                    GlowingSphereView(
-                                        sphereType: sphereType,
-                                        isActive: currentSphereType == sphereType,
-                                        scale: $sphereScale,
-                                        glowIntensity: $sphereGlowIntensity,
-                                        breathingPhase: currentSphereType == sphereType ? sphereBreathingPhase : 0,
-                                        useCustomBreathing: currentSphereType == sphereType && quickTapBreathing
-                                    )
-                                    .gesture(createSphereGesture(for: sphereType))
-                                    
-                                    SphereLabelView(
-                                        sphereType: sphereType,
-                                        isExpanded: isExpanded
-                                    )
-                                }
-                                .tag(sphereType.rawValue)
-                            }
-                        }
-                        .tabViewStyle(.page(indexDisplayMode: .never))
+                        // Custom carousel implementation
+                        SphereCarouselView(
+                            currentIndex: $currentIndex,
+                            dragOffset: $dragOffset,
+                            currentSphereType: $currentSphereType,
+                            selection: $selection,
+                            sphereScale: $sphereScale,
+                            sphereGlowIntensity: $sphereGlowIntensity,
+                            sphereBreathingPhase: sphereBreathingPhase,
+                            quickTapBreathing: quickTapBreathing,
+                            isExpanded: isExpanded,
+                            createSphereGesture: createSphereGesture
+                        )
                         .frame(height: geo.size.height * 0.6)
                         
                         // Star burst effect overlay
@@ -150,7 +146,7 @@ struct MainMenuView: View {
                     .transition(.scale.combined(with: .opacity))
                     
                 } else {
-                    // Expanded bubble mode
+                    // Expanded bubble mode (unchanged)
                     ZStack {
                         // Multitouch tracker
                         MultiTouchView(
@@ -228,10 +224,18 @@ struct MainMenuView: View {
                     initializeStars()
                 }
                 currentSphereType = SphereType(rawValue: selection) ?? .dawn
+                currentIndex = selection
             }
             .onChange(of: selection) { newValue in
                 withAnimation(.easeInOut(duration: 0.3)) {
                     currentSphereType = SphereType(rawValue: newValue) ?? .dawn
+                    currentIndex = newValue
+                }
+            }
+            .onChange(of: currentIndex) { newValue in
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    currentSphereType = SphereType.allCases[newValue]
+                    selection = newValue
                 }
             }
             .onReceive(starTimer) { _ in
@@ -265,82 +269,84 @@ struct MainMenuView: View {
     }
     
     // MARK: - Sphere Gesture
-    private func createSphereGesture(for sphereType: SphereType) -> some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { _ in
-                if !isPressing {
-                    isPressing = true
-                    
-                    // Initial haptic and animation
-                    triggerHaptic(for: sphereType.hapticID)
-                    
-                    // Quick tap breathing effect
-                    quickTapBreathing = true
-                    sphereBreathingPhase = 0
-                    
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.6, blendDuration: 0)) {
-                        sphereScale = 0.85
-                        sphereGlowIntensity = 1.3
-                    }
-                    
-                    // Breathing animation synced with haptic
-                    withAnimation(.easeInOut(duration: 0.5)) {
-                        sphereScale = 0.9
-                    }
-                    
-                    // Hold to expand - same animation as onboarding but with star burst
-                    let work = DispatchWorkItem {
-                        print("Expanding sphere \(sphereType.name)")
+    private func createSphereGesture(for sphereType: SphereType) -> AnyGesture<DragGesture.Value> {
+        return AnyGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    if !isPressing {
+                        isPressing = true
                         
-                        // Save selection
-                        selectedHaptic.selectedCircle = sphereType.hapticID
-                        selectedHaptic.selectedColor = sphereType.baseColor
+                        // Initial haptic and animation
+                        triggerHaptic(for: sphereType.hapticID)
                         
-                        // Success haptic
-                        HapticManager.notification(.success)
+                        // Quick tap breathing effect
+                        quickTapBreathing = true
+                        sphereBreathingPhase = 0
                         
-                        // Create star burst effect
-                        self.createSelectionStarBurst(for: sphereType)
-                        
-                        // Shrink sphere like onboarding, then expand mode
-                        withAnimation(.easeIn(duration: 0.3)) {
-                            sphereScale = 0.1
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.6, blendDuration: 0)) {
+                            sphereScale = 0.85
+                            sphereGlowIntensity = 1.3
                         }
                         
-                        // Wait for shrink, then expand to bubble mode
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
-                                self.isExpanded = true
-                                self.sphereScale = 1.0
-                                self.quickTapBreathing = false
+                        // Breathing animation synced with haptic
+                        withAnimation(.easeInOut(duration: 0.5)) {
+                            sphereScale = 0.9
+                        }
+                        
+                        // Hold to expand - same animation as onboarding but with star burst
+                        let work = DispatchWorkItem {
+                            print("Expanding sphere \(sphereType.name)")
+                            
+                            // Save selection
+                            selectedHaptic.selectedCircle = sphereType.hapticID
+                            selectedHaptic.selectedColor = sphereType.baseColor
+                            
+                            // Success haptic
+                            HapticManager.notification(.success)
+                            
+                            // Create star burst effect
+                            self.createSelectionStarBurst(for: sphereType)
+                            
+                            // Shrink sphere like onboarding, then expand mode
+                            withAnimation(.easeIn(duration: 0.3)) {
+                                sphereScale = 0.1
+                            }
+                            
+                            // Wait for shrink, then expand to bubble mode
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                                    self.isExpanded = true
+                                    self.sphereScale = 1.0
+                                    self.quickTapBreathing = false
+                                }
                             }
                         }
+                        holdWork = work
+                        DispatchQueue.main.asyncAfter(deadline: .now() + AnimationConstants.sphereHoldDuration, execute: work)
+                        
+                    } else {
+                        // Continuous haptic while holding
+                        let now = Date()
+                        if now.timeIntervalSince(lastHapticTime) > AnimationConstants.hapticInterval {
+                            lastHapticTime = now
+                            triggerHaptic(for: sphereType.hapticID)
+                        }
                     }
-                    holdWork = work
-                    DispatchQueue.main.asyncAfter(deadline: .now() + AnimationConstants.sphereHoldDuration, execute: work)
+                }
+                .onEnded { _ in
+                    isPressing = false
+                    holdWork?.cancel()
+                    holdWork = nil
                     
-                } else {
-                    // Continuous haptic while holding
-                    let now = Date()
-                    if now.timeIntervalSince(lastHapticTime) > AnimationConstants.hapticInterval {
-                        lastHapticTime = now
-                        triggerHaptic(for: sphereType.hapticID)
+                    // If quick tap (not expanded), continue breathing animation
+                    if !isExpanded && !quickTapBreathing {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                            sphereScale = 1.0
+                            sphereGlowIntensity = AnimationConstants.sphereGlowIntensity
+                        }
                     }
                 }
-            }
-            .onEnded { _ in
-                isPressing = false
-                holdWork?.cancel()
-                holdWork = nil
-                
-                // If quick tap (not expanded), continue breathing animation
-                if !isExpanded && !quickTapBreathing {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                        sphereScale = 1.0
-                        sphereGlowIntensity = AnimationConstants.sphereGlowIntensity
-                    }
-                }
-            }
+        )
     }
     
     // MARK: - Star Burst Effect for Selection
@@ -700,6 +706,173 @@ struct MainMenuView: View {
         default:
             break
         }
+    }
+}
+
+// MARK: - Sphere Carousel View
+struct SphereCarouselView: View {
+    @Binding var currentIndex: Int
+    @Binding var dragOffset: CGFloat
+    @Binding var currentSphereType: SphereType
+    @Binding var selection: Int
+    @Binding var sphereScale: CGFloat
+    @Binding var sphereGlowIntensity: Double
+    let sphereBreathingPhase: CGFloat
+    let quickTapBreathing: Bool
+    let isExpanded: Bool
+    let createSphereGesture: (SphereType) -> AnyGesture<DragGesture.Value>
+    
+    var body: some View {
+        GeometryReader { carouselGeo in
+            let carouselWidth = carouselGeo.size.width
+            let sphereSpacing: CGFloat = carouselWidth * 0.7 // Show partial spheres on sides
+            
+            ZStack {
+                // Create enough instances for smooth infinite scrolling
+                ForEach(-2...4, id: \.self) { index in
+                    SphereCarouselItem(
+                        index: index,
+                        currentIndex: currentIndex,
+                        dragOffset: dragOffset,
+                        sphereSpacing: sphereSpacing,
+                        sphereScale: $sphereScale,
+                        sphereGlowIntensity: $sphereGlowIntensity,
+                        sphereBreathingPhase: sphereBreathingPhase,
+                        quickTapBreathing: quickTapBreathing,
+                        isExpanded: isExpanded,
+                        createSphereGesture: createSphereGesture
+                    )
+                }
+            }
+            .frame(width: carouselWidth, height: carouselGeo.size.height)
+            .clipped()
+            .gesture(createCarouselDragGesture())
+        }
+    }
+    
+    private func createCarouselDragGesture() -> some Gesture {
+        DragGesture()
+            .onChanged { value in
+                dragOffset = value.translation.width
+            }
+            .onEnded { value in
+                let dragThreshold: CGFloat = 50
+                let velocityThreshold: CGFloat = 300
+                
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                    if value.translation.width > dragThreshold || value.velocity.width > velocityThreshold {
+                        // Swipe right - go to previous
+                        currentIndex = (currentIndex - 1 + SphereType.allCases.count) % SphereType.allCases.count
+                    } else if value.translation.width < -dragThreshold || value.velocity.width < -velocityThreshold {
+                        // Swipe left - go to next
+                        currentIndex = (currentIndex + 1) % SphereType.allCases.count
+                    }
+                    dragOffset = 0
+                    
+                    // Update current sphere type
+                    currentSphereType = SphereType.allCases[currentIndex]
+                    selection = currentIndex
+                }
+            }
+    }
+}
+
+// MARK: - Sphere Carousel Item
+struct SphereCarouselItem: View {
+    let index: Int
+    let currentIndex: Int
+    let dragOffset: CGFloat
+    let sphereSpacing: CGFloat
+    @Binding var sphereScale: CGFloat
+    @Binding var sphereGlowIntensity: Double
+    let sphereBreathingPhase: CGFloat
+    let quickTapBreathing: Bool
+    let isExpanded: Bool
+    let createSphereGesture: (SphereType) -> AnyGesture<DragGesture.Value>
+    
+    private var sphereIndex: Int {
+        // Proper modulo for infinite scrolling
+        var actualIndex = index
+        while actualIndex < 0 {
+            actualIndex += SphereType.allCases.count
+        }
+        return actualIndex % SphereType.allCases.count
+    }
+    
+    private var sphereType: SphereType {
+        SphereType.allCases[sphereIndex]
+    }
+    
+    private var isCurrentSphere: Bool {
+        sphereIndex == currentIndex
+    }
+    
+    private var relativePosition: Int {
+        // Calculate relative position for infinite scroll
+        var diff = index - currentIndex
+        
+        // Wrap around logic
+        if diff > SphereType.allCases.count / 2 {
+            diff -= SphereType.allCases.count
+        } else if diff < -SphereType.allCases.count / 2 {
+            diff += SphereType.allCases.count
+        }
+        
+        return diff
+    }
+    
+    private var totalOffset: CGFloat {
+        CGFloat(relativePosition) * sphereSpacing + dragOffset
+    }
+    
+    private var finalScale: CGFloat {
+        if isCurrentSphere { return 1.0 }
+        
+        let distance = abs(relativePosition)
+        if distance == 1 {
+            // Adjacent spheres - make them smaller but visible
+            return 0.7
+        }
+        return 0.5
+    }
+    
+    private var finalOpacity: Double {
+        if isCurrentSphere { return 1.0 }
+        
+        let distance = abs(relativePosition)
+        if distance == 1 {
+            // Adjacent spheres - partially visible
+            return 0.4
+        } else if distance == 2 {
+            return 0.1
+        }
+        return 0
+    }
+    
+    var body: some View {
+        VStack(spacing: 40) {
+            GlowingSphereView(
+                sphereType: sphereType,
+                isActive: isCurrentSphere,
+                scale: $sphereScale,
+                glowIntensity: $sphereGlowIntensity,
+                breathingPhase: isCurrentSphere ? sphereBreathingPhase : 0,
+                useCustomBreathing: isCurrentSphere && quickTapBreathing
+            )
+            .scaleEffect(finalScale)
+            .opacity(finalOpacity)
+            .gesture(createSphereGesture(sphereType))
+            
+            if isCurrentSphere {
+                SphereLabelView(
+                    sphereType: sphereType,
+                    isExpanded: isExpanded
+                )
+                .opacity(finalOpacity)
+            }
+        }
+        .offset(x: totalOffset)
+        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: totalOffset)
     }
 }
 
