@@ -15,106 +15,104 @@ struct GlowingSphereView: View {
     var breathingPhase: CGFloat = 0
     var useCustomBreathing: Bool = false
     
-    @State private var pulseAnimation = false
-    @State private var rotationAngle: Double = 0
+    // State for the sphere's natural breathing animation
     @State private var internalBreathingPhase: CGFloat = 0
     
     var body: some View {
         ZStack {
-            // Outer glow rings
-            if isActive {
-                ForEach(0..<3, id: \.self) { ring in
-                    Circle()
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    sphereType.baseColor.opacity(0.6 - Double(ring) * 0.2),
-                                    sphereType.baseColor.opacity(0.4 - Double(ring) * 0.15),
-                                    sphereType.baseColor.opacity(0.3 - Double(ring) * 0.1)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 2
-                        )
-                        .frame(width: 280 + CGFloat(ring * 30), height: 280 + CGFloat(ring * 30))
-                        .opacity(pulseAnimation ? 0.8 - Double(ring) * 0.2 : 0.3 - Double(ring) * 0.1)
-                        .scaleEffect(pulseAnimation ? 1.1 : 0.95)
-                        .rotationEffect(.degrees(rotationAngle + Double(ring * 30)))
-                }
-            }
+            let baseColor = sphereType.baseColor
             
-            // Main sphere with bouncy breathing
-            ZStack {
-                // Base sphere with gradient
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: sphereType.gradientColors,
-                            center: UnitPoint(x: 0.35, y: 0.25),
-                            startRadius: 20,
-                            endRadius: 120
-                        )
-                    )
-                
-                // Anime-style highlight
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color.white.opacity(0.9),
-                                Color.white.opacity(0.3),
-                                Color.clear
-                            ],
-                            center: UnitPoint(x: 0.3, y: 0.2),
-                            startRadius: 10,
-                            endRadius: 50
-                        )
-                    )
-                
-                // Bottom shadow for depth
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color.clear,
-                                Color.black.opacity(0.1),
-                                Color.black.opacity(0.2)
-                            ],
-                            center: UnitPoint(x: 0.5, y: 0.8),
-                            startRadius: 40,
-                            endRadius: 100
-                        )
-                    )
-            }
-            .frame(width: 220, height: 220)
-            .scaleEffect(scale * (1.0 + sin(useCustomBreathing ? breathingPhase : internalBreathingPhase) * (useCustomBreathing ? 0.12 : 0.06)))
-            
-            // Outer glow effect
+            // 1. Soft Outer Glow
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [
-                            sphereType.baseColor.opacity(0.6),
-                            sphereType.baseColor.opacity(0.3),
-                            Color.clear
-                        ],
+                        colors: [baseColor.opacity(0.4), .clear],
                         center: .center,
-                        startRadius: 60,
-                        endRadius: 130
+                        startRadius: 80, // Start glow further out
+                        endRadius: 180
                     )
                 )
-                .frame(width: 260, height: 260)
-                .scaleEffect(scale * (1.0 + sin(useCustomBreathing ? breathingPhase : internalBreathingPhase) * (useCustomBreathing ? 0.08 : 0.04)))
-                .opacity(glowIntensity)
-                .blur(radius: 10)
-        }
-        .shadow(color: sphereType.baseColor.opacity(0.5), radius: 30, x: 0, y: 0)
-        .shadow(color: sphereType.baseColor.opacity(0.3), radius: 15, x: 0, y: 0)
-        .onAppear {
-            if isActive {
-                startAnimations()
+                .frame(width: 360, height: 360)
+                .blur(radius: 25)
+                .opacity(isActive ? glowIntensity * 0.8 : 0.5)
+                .scaleEffect(useCustomBreathing ? (1.0 + sin(breathingPhase) * 0.05) : (1.0 + sin(internalBreathingPhase) * 0.03))
+            
+            // 2. Main Bubble Body
+            ZStack {
+                // Core transparent body
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [
+                                baseColor.opacity(0.25),
+                                baseColor.opacity(0.1),
+                                baseColor.opacity(0.2) // Slightly darker edge
+                            ]),
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 100
+                        )
+                    )
+                
+                // Rim Highlight for a glassy edge
+                Circle()
+                    .stroke(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                .white.opacity(0.6),
+                                baseColor.opacity(0.1),
+                                .white.opacity(0.5)
+                            ]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 2.0
+                    )
+                    .blur(radius: 1)
+                
+                // Main glossy reflection (top-left)
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [.white.opacity(0.9), .white.opacity(0.0)]),
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 45
+                        )
+                    )
+                    .frame(width: 90, height: 90)
+                    .offset(x: -45, y: -50)
+                    .blur(radius: 2)
+                
+                // Softer, wider highlight
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [.white.opacity(0.4), .white.opacity(0.0)]),
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 80
+                        )
+                    )
+                    .frame(width: 160, height: 160)
+                    .offset(x: -30, y: -40)
+                    .blur(radius: 5)
+                    .opacity(0.8)
+                
+                // Subtle inner light source (bottom-right)
+                Circle()
+                    .fill(baseColor.opacity(0.4))
+                    .frame(width: 120, height: 120)
+                    .offset(x: 40, y: 40)
+                    .blur(radius: 40)
             }
+            .frame(width: 200, height: 200)
+            .clipShape(Circle()) // This is the fix! It constrains the highlights.
+            // Apply breathing effect to the entire bubble structure
+            .scaleEffect(useCustomBreathing ? (1.0 + sin(breathingPhase) * 0.05) : (1.0 + sin(internalBreathingPhase) * 0.03))
+        }
+        .onAppear {
+            startAnimations()
         }
         .onChange(of: isActive) { newValue in
             if newValue {
@@ -122,24 +120,15 @@ struct GlowingSphereView: View {
             }
         }
         .onReceive(Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()) { _ in
+            // Drive the natural breathing animation if not controlled externally
             if !useCustomBreathing {
-                internalBreathingPhase += 0.025
+                internalBreathingPhase += 0.02
             }
         }
     }
     
     private func startAnimations() {
-        // Pulse animation
-        withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
-            pulseAnimation.toggle()
-        }
-        
-        // Slow rotation for outer rings
-        withAnimation(.linear(duration: 30).repeatForever(autoreverses: false)) {
-            rotationAngle = 360
-        }
-        
-        // Glow breathing
+        // Simplified animation for the glow intensity
         withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
             glowIntensity = glowIntensity == AnimationConstants.sphereGlowIntensity ? 1.0 : AnimationConstants.sphereGlowIntensity
         }
