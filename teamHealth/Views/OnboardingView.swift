@@ -15,21 +15,27 @@ struct OnboardingView: View {
     @State private var holdWork: DispatchWorkItem?
     @State private var lastHapticTime: Date = .distantPast
     @State private var isTransitioning = false
-    @State private var showMainMenu = false
     
-    // Burst animation state
-    @State private var burstBubbles: [BurstBubble] = []
-    @State private var childBubbles: [ChildBubble] = []
-    @State private var showBurst = false
+    // Big Bang Effect Manager
+    @StateObject private var bigBangEffect = BigBangEffectManager()
+    @StateObject private var enhancedBurst = EnhancedBurstManager()
     
-    // Star animation - now shared with app
+    // Star animation - shared with app
     @Binding var stars: [Star]
     @Binding var selectedSphereType: SphereType
     private let starCount = 80
     
-    // Background transition
-    @State private var backgroundTransition: Double = 0.0
-    @State private var currentSphereType: SphereType = .dawn
+    // Transition states
+    @State private var showSphereSelection = false
+    @State private var sphereSelectionOpacity: Double = 0
+    @State private var onboardingSphereOpacity: Double = 1
+    @State private var backgroundStarOpacity: Double = 0
+    @State private var blackBackgroundOpacity: Double = 1
+    
+    // Sphere selection states (for smooth transition)
+    @State private var selection = 0
+    @State private var menuSphereScale: CGFloat = 0.1
+    @State private var menuSphereGlowIntensity: Double = AnimationConstants.sphereGlowIntensity
     
     // Timer for animations
     private let animationTimer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
@@ -42,174 +48,155 @@ struct OnboardingView: View {
         
         GeometryReader { geo in
             ZStack {
-                // Background gradient with smooth transition
-                Group {
-                    // Onboarding background
-                    LinearGradient(
-                        stops: [
-                            Gradient.Stop(color: Color(red: 0.05, green: 0.05, blue: 0.05), location: 0.00),
-                            Gradient.Stop(color: Color(red: 0.1, green: 0.1, blue: 0.15), location: 1.00),
-                        ],
-                        startPoint: UnitPoint(x: 0.1, y: -0.02),
-                        endPoint: UnitPoint(x: 1.18, y: 2.00)
-                    )
-                    .opacity(1.0 - backgroundTransition)
-                    
-                    // Main menu background
-                    currentSphereType.backgroundGradient
-                        .opacity(backgroundTransition)
-                }
-                .ignoresSafeArea()
+                // Layer 1: Black background for onboarding (fades out)
+                Color.black
+                    .opacity(blackBackgroundOpacity)
+                    .ignoresSafeArea()
                 
-                // Animated stars
+                // Layer 2: Main menu gradient background (fades in after explosion)
+                selectedSphereType.backgroundGradient
+                    .opacity(1.0 - blackBackgroundOpacity)
+                    .ignoresSafeArea()
+                
+                // Layer 3: Animated stars (opacity changes during transition)
                 ForEach(stars) { star in
                     let starPosition = star.position(centerX: screenWidth/2, centerY: screenHeight/2)
                     
                     Circle()
-                        .fill(Color.white.opacity(star.currentOpacity * 0.6))
+                        .fill(Color.white.opacity(star.currentOpacity * (0.3 + backgroundStarOpacity * 0.5)))
                         .frame(width: star.currentSize, height: star.currentSize)
                         .position(starPosition)
                         .blur(radius: star.distance < 50 ? 0.5 : 0)
                 }
                 
-                // Onboarding content that fades out
-                if !showMainMenu {
-                    if currentPage == 0 {
-                        // First page - "Express without word"
-                        VStack(spacing: 60) {
-                            VStack(spacing: 20) {
-                                Text("Express without word")
-                                    .font(.system(size: 32, weight: .semibold, design: .rounded))
-                                    .foregroundColor(.white)
-                                    .multilineTextAlignment(.center)
+                // Layer 4: Onboarding content (fades out during transition)
+                if !showSphereSelection {
+                    Group {
+                        if currentPage == 0 {
+                            // First page
+                            VStack(spacing: 60) {
+                                VStack(spacing: 20) {
+                                    Text("Express without word")
+                                        .font(.system(size: 32, weight: .semibold, design: .rounded))
+                                        .foregroundColor(.white)
+                                        .multilineTextAlignment(.center)
+                                }
+                                .padding(.top, 100)
+                                
+                                Spacer()
+                                
+                                // White Glowing Sphere
+                                WhiteGlowingSphereView(
+                                    isActive: true,
+                                    scale: $sphereScale,
+                                    glowIntensity: $sphereGlowIntensity,
+                                    size: 160,
+                                    enableBounce: true
+                                )
+                                .opacity(onboardingSphereOpacity)
+                                .scaleEffect(bigBangEffect.isExploding ? 0.01 : 1)
+                                .gesture(createSphereGesture())
+                                
+                                Spacer()
+                                
+                                VStack(spacing: 8) {
+                                    Text("Say it with a living rhythm,")
+                                        .font(.system(size: 18, weight: .medium, design: .rounded))
+                                        .foregroundColor(.white.opacity(0.8))
+                                    Text("when words won't land.")
+                                        .font(.system(size: 18, weight: .medium, design: .rounded))
+                                        .foregroundColor(.white.opacity(0.8))
+                                }
+                                .padding(.bottom, 80)
                             }
-                            .padding(.top, 100)
                             
-                            Spacer()
-                            
-                            // White Glowing Sphere (smaller)
-                            WhiteGlowingSphereView(
-                                isActive: true,
-                                scale: $sphereScale,
-                                glowIntensity: $sphereGlowIntensity,
-                                size: 160,
-                                enableBounce: true
-                            )
-                            .opacity(showBurst ? 0 : 1)
-                            .scaleEffect(showBurst ? 0.1 : 1)
-                            .animation(.easeIn(duration: 0.3), value: showBurst)
-                            .gesture(createSphereGesture())
-                            
-                            Spacer()
-                            
-                            VStack(spacing: 8) {
-                                Text("Say it with a living rhythm,")
-                                    .font(.system(size: 18, weight: .medium, design: .rounded))
-                                    .foregroundColor(.white.opacity(0.8))
-                                Text("when words won't land.")
-                                    .font(.system(size: 18, weight: .medium, design: .rounded))
-                                    .foregroundColor(.white.opacity(0.8))
+                        } else {
+                            // Second page
+                            VStack(spacing: 60) {
+                                Spacer()
+                                
+                                WhiteGlowingSphereView(
+                                    isActive: true,
+                                    scale: $sphereScale,
+                                    glowIntensity: $sphereGlowIntensity,
+                                    size: 200,
+                                    enableBounce: true
+                                )
+                                .opacity(onboardingSphereOpacity)
+                                .scaleEffect(bigBangEffect.isExploding ? 0.01 : 1)
+                                .gesture(createSphereGesture())
+                                
+                                Spacer()
+                                
+                                VStack(spacing: 8) {
+                                    Text("Tap to feel the vibration,")
+                                        .font(.system(size: 18, weight: .medium, design: .rounded))
+                                        .foregroundColor(.white.opacity(0.8))
+                                    Text("hold to jump to the session.")
+                                        .font(.system(size: 18, weight: .medium, design: .rounded))
+                                        .foregroundColor(.white.opacity(0.8))
+                                }
+                                .padding(.bottom, 80)
                             }
-                            .padding(.bottom, 80)
                         }
-                        .opacity(1.0 - backgroundTransition)
-                        .transition(.opacity)
-                        
-                    } else {
-                        // Second page - "Tap to feel the vibration"
-                        VStack(spacing: 60) {
-                            Spacer()
-                            
-                            // Larger White Glowing Sphere
-                            WhiteGlowingSphereView(
-                                isActive: true,
-                                scale: $sphereScale,
-                                glowIntensity: $sphereGlowIntensity,
-                                size: 200,
-                                enableBounce: true
-                            )
-                            .opacity(showBurst ? 0 : 1)
-                            .scaleEffect(showBurst ? 0.1 : 1)
-                            .animation(.easeIn(duration: 0.3), value: showBurst)
-                            .gesture(createSphereGesture())
-                            
-                            Spacer()
-                            
-                            VStack(spacing: 8) {
-                                Text("Tap to feel the vibration,")
-                                    .font(.system(size: 18, weight: .medium, design: .rounded))
-                                    .foregroundColor(.white.opacity(0.8))
-                                Text("hold to jump to the session.")
-                                    .font(.system(size: 18, weight: .medium, design: .rounded))
-                                    .foregroundColor(.white.opacity(0.8))
-                            }
-                            .padding(.bottom, 80)
-                        }
-                        .opacity(1.0 - backgroundTransition)
-                        .transition(.opacity)
                     }
-                }
-                
-                // Main Menu that fades in
-                if showMainMenu {
-                    MainMenuContentView(
-                        stars: $stars,
-                        currentSphereType: $currentSphereType
-                    )
-                    .opacity(backgroundTransition)
+                    .opacity(onboardingSphereOpacity)
                     .transition(.opacity)
                 }
                 
-                // Enhanced burst bubbles with child bubbles
-                if showBurst {
-                    ZStack {
-                        // Main burst bubbles
-                        ForEach(burstBubbles) { bubble in
-                            Circle()
-                                .fill(
-                                    RadialGradient(
-                                        colors: [
-                                            Color.white.opacity(bubble.opacity),
-                                            Color.white.opacity(bubble.opacity * 0.7),
-                                            Color.white.opacity(bubble.opacity * 0.3)
-                                        ],
-                                        center: .center,
-                                        startRadius: 2,
-                                        endRadius: bubble.radius
-                                    )
-                                )
-                                .frame(width: bubble.currentSize, height: bubble.currentSize)
-                                .position(bubble.position)
-                                .blur(radius: 2)
-                                .shadow(color: Color.white.opacity(0.4), radius: 5)
-                        }
-                        
-                        // Child bubbles
-                        ForEach(childBubbles) { childBubble in
-                            Circle()
-                                .fill(
-                                    RadialGradient(
-                                        colors: [
-                                            Color.white.opacity(childBubble.opacity),
-                                            Color.white.opacity(childBubble.opacity * 0.6),
-                                            Color.clear
-                                        ],
-                                        center: .center,
-                                        startRadius: 1,
-                                        endRadius: childBubble.radius
-                                    )
-                                )
-                                .frame(width: childBubble.currentSize, height: childBubble.currentSize)
-                                .position(childBubble.position)
-                                .blur(radius: 1)
-                                .shadow(color: Color.white.opacity(0.3), radius: 3)
-                        }
-                    }
-                    .allowsHitTesting(false)
+                // Layer 5: Big Bang Visual Effect
+                BigBangVisualEffect(
+                    effectManager: bigBangEffect,
+                    centerX: screenWidth / 2,
+                    centerY: screenHeight / 2
+                )
+                
+                // Enhanced particles from burst
+                ForEach(enhancedBurst.particles) { particle in
+                    Circle()
+                        .fill(particle.color.opacity(particle.opacity))
+                        .frame(width: particle.size, height: particle.size)
+                        .position(particle.position)
+                        .rotationEffect(.radians(particle.rotation))
+                        .blur(radius: particle.opacity < 0.5 ? 2 : 0)
+                        .allowsHitTesting(false)
                 }
                 
-                // Navigation dots
-                if !isTransitioning && !showMainMenu {
+                // Layer 6: Sphere Selection (emerges from explosion center)
+                if showSphereSelection {
+                    VStack {
+                        Spacer()
+                        
+                        TabView(selection: $selection) {
+                            ForEach(SphereType.allCases, id: \.rawValue) { sphereType in
+                                VStack(spacing: 40) {
+                                    GlowingSphereView(
+                                        sphereType: sphereType,
+                                        isActive: selectedSphereType == sphereType,
+                                        scale: $menuSphereScale,
+                                        glowIntensity: $menuSphereGlowIntensity
+                                    )
+                                    .scaleEffect(menuSphereScale)
+                                    
+                                    SphereLabelView(
+                                        sphereType: sphereType,
+                                        isExpanded: false
+                                    )
+                                    .opacity(sphereSelectionOpacity)
+                                }
+                                .tag(sphereType.rawValue)
+                            }
+                        }
+                        .tabViewStyle(.page(indexDisplayMode: .never))
+                        .frame(height: UIScreen.main.bounds.height * 0.6)
+                        .opacity(sphereSelectionOpacity)
+                        
+                        Spacer()
+                    }
+                }
+                
+                // Navigation dots for onboarding
+                if !isTransitioning && !showSphereSelection {
                     VStack {
                         Spacer()
                         HStack(spacing: 12) {
@@ -223,27 +210,32 @@ struct OnboardingView: View {
                         }
                         .padding(.bottom, 40)
                     }
+                    .opacity(onboardingSphereOpacity)
                 }
             }
             .onAppear {
                 initializeStars()
+                selectedSphereType = .dawn
             }
             .onReceive(animationTimer) { _ in
                 updateStars()
-                updateBurstBubbles()
-                updateChildBubbles()
+                bigBangEffect.updateExplosion()
+                enhancedBurst.updateParticles()
+            }
+            .onChange(of: selection) { newValue in
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    selectedSphereType = SphereType(rawValue: newValue) ?? .dawn
+                }
             }
             .gesture(
                 DragGesture()
                     .onEnded { value in
-                        if !isTransitioning && !showBurst {
+                        if !isTransitioning && !bigBangEffect.isExploding && !showSphereSelection {
                             if value.translation.width < -50 && currentPage == 0 {
-                                // Swipe left to next page
                                 withAnimation(.easeInOut(duration: 0.5)) {
                                     currentPage = 1
                                 }
                             } else if value.translation.width > 50 && currentPage == 1 {
-                                // Swipe right to previous page
                                 withAnimation(.easeInOut(duration: 0.5)) {
                                     currentPage = 0
                                 }
@@ -270,10 +262,10 @@ struct OnboardingView: View {
                         sphereGlowIntensity = 1.3
                     }
                     
-                    // Hold to complete onboarding
+                    // Hold to complete onboarding with Big Bang
                     let work = DispatchWorkItem {
                         if !self.isTransitioning {
-                            self.triggerBurst()
+                            self.triggerBigBang()
                         }
                     }
                     holdWork = work
@@ -284,7 +276,7 @@ struct OnboardingView: View {
                     let now = Date()
                     if now.timeIntervalSince(lastHapticTime) > 0.2 {
                         lastHapticTime = now
-                        HapticManager.playAHAP(named: "shockwave")
+                        HapticManager.playAHAP(named: "drum")
                     }
                 }
             }
@@ -302,123 +294,47 @@ struct OnboardingView: View {
             }
     }
     
-    // MARK: - Burst Animation
-    private func triggerBurst() {
+    // MARK: - Big Bang Trigger with Smooth Transition
+    private func triggerBigBang() {
         isTransitioning = true
         
-        // Success haptic
-        HapticManager.notification(.success)
-        
-        // Create burst bubbles - more intense burst
+        // Create enhanced particles at center
         let centerX = UIScreen.main.bounds.width / 2
         let centerY = UIScreen.main.bounds.height / 2
+        enhancedBurst.createBigBangParticles(at: CGPoint(x: centerX, y: centerY), count: 150)
         
-        // Main burst bubbles (larger, faster)
-        burstBubbles = (0..<35).map { _ in
-            let angle = Double.random(in: 0..<2 * .pi)
-            let speed = CGFloat.random(in: 150...300)
-            let initialVelocity = CGVector(
-                dx: cos(angle) * speed,
-                dy: sin(angle) * speed
-            )
+        // Trigger the big bang effect with stars
+        bigBangEffect.triggerBigBang(stars: &stars)
+        
+        // Start fading out onboarding sphere immediately
+        withAnimation(.easeOut(duration: 0.3)) {
+            onboardingSphereOpacity = 0
+        }
+        
+        // Phase 1: During explosion (0-1.5s)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            // Start showing sphere selection while explosion is happening
+            showSphereSelection = true
             
-            return BurstBubble(
-                position: CGPoint(x: centerX, y: centerY),
-                velocity: initialVelocity,
-                baseSize: CGFloat.random(in: 25...60),
-                opacity: Double.random(in: 0.7...1.0)
-            )
-        }
-        
-        // Child bubbles (smaller, more numerous)
-        childBubbles = (0..<50).map { _ in
-            let angle = Double.random(in: 0..<2 * .pi)
-            let speed = CGFloat.random(in: 80...180)
-            let initialVelocity = CGVector(
-                dx: cos(angle) * speed,
-                dy: sin(angle) * speed
-            )
-            
-            return ChildBubble(
-                position: CGPoint(x: centerX, y: centerY),
-                velocity: initialVelocity,
-                baseSize: CGFloat.random(in: 8...25),
-                opacity: Double.random(in: 0.5...0.8),
-                lifespan: Double.random(in: 2.0...4.0)
-            )
-        }
-        
-        // Start burst animation
-        withAnimation(.easeIn(duration: 0.3)) {
-            showBurst = true
-        }
-        
-        // Longer transition timing for extended burst
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
-            // Start smooth transition
+            // Begin background transition
             withAnimation(.easeInOut(duration: 2.0)) {
-                self.showMainMenu = true
-                self.backgroundTransition = 1.0
-                self.selectedSphereType = self.currentSphereType
-            }
-            
-            // Complete transition
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                self.onComplete()
+                blackBackgroundOpacity = 0
+                backgroundStarOpacity = 1.0
             }
         }
-    }
-    
-    // MARK: - Burst Bubble Updates
-    private func updateBurstBubbles() {
-        guard showBurst else { return }
         
-        for i in burstBubbles.indices {
-            var bubble = burstBubbles[i]
-            
-            // Update position (no gravity, just spread outward)
-            bubble.position.x += bubble.velocity.dx * 0.016
-            bubble.position.y += bubble.velocity.dy * 0.016
-            
-            // Fade out
-            bubble.opacity *= 0.985
-            
-            // Slow down
-            bubble.velocity.dx *= 0.992
-            bubble.velocity.dy *= 0.992
-            
-            burstBubbles[i] = bubble
+        // Phase 2: Spheres emerge from explosion center (1.5-3s)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            withAnimation(.spring(response: 0.8, dampingFraction: 0.7, blendDuration: 0)) {
+                menuSphereScale = 1.0
+                sphereSelectionOpacity = 1.0
+            }
         }
         
-        // Remove faded bubbles
-        burstBubbles.removeAll { $0.opacity < 0.05 }
-    }
-    
-    // MARK: - Child Bubble Updates
-    private func updateChildBubbles() {
-        guard showBurst else { return }
-        
-        for i in childBubbles.indices {
-            var bubble = childBubbles[i]
-            
-            // Update position (no gravity, just spread outward)
-            bubble.position.x += bubble.velocity.dx * 0.016
-            bubble.position.y += bubble.velocity.dy * 0.016
-            
-            // Air resistance only
-            bubble.velocity.dx *= 0.995
-            bubble.velocity.dy *= 0.995
-            
-            // Fade out over time
-            bubble.age += 0.016
-            let ageRatio = bubble.age / bubble.lifespan
-            bubble.opacity = max(0, bubble.baseOpacity * (1.0 - ageRatio))
-            
-            childBubbles[i] = bubble
+        // Phase 3: Complete transition (4s)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+            self.onComplete()
         }
-        
-        // Remove dead bubbles
-        childBubbles.removeAll { $0.opacity <= 0.05 }
     }
     
     // MARK: - Star Management
@@ -438,56 +354,16 @@ struct OnboardingView: View {
         let maxDistance = sqrt(pow(screenWidth, 2) + pow(screenHeight, 2)) + 100
         
         for i in stars.indices {
+            // Normal movement
             stars[i].distance += stars[i].speed / 300.0
             
+            // Reset stars that go too far
             if stars[i].distance > maxDistance {
                 stars[i] = Star()
-            }
-        }
-    }
-}
-
-// MARK: - Main Menu Content View
-struct MainMenuContentView: View {
-    @Binding var stars: [Star]
-    @Binding var currentSphereType: SphereType
-    @State private var selection = 0
-    @State private var sphereScale: CGFloat = 1.0
-    @State private var sphereGlowIntensity: Double = AnimationConstants.sphereGlowIntensity
-    
-    var body: some View {
-        VStack {
-            Spacer()
-            
-            TabView(selection: $selection) {
-                ForEach(SphereType.allCases, id: \.rawValue) { sphereType in
-                    VStack(spacing: 40) {
-                        GlowingSphereView(
-                            sphereType: sphereType,
-                            isActive: currentSphereType == sphereType,
-                            scale: $sphereScale,
-                            glowIntensity: $sphereGlowIntensity
-                        )
-                        
-                        SphereLabelView(
-                            sphereType: sphereType,
-                            isExpanded: false
-                        )
-                    }
-                    .tag(sphereType.rawValue)
+                // If we're exploding, give new stars some initial velocity
+                if bigBangEffect.isExploding {
+                    stars[i].speed = CGFloat.random(in: 100...300)
                 }
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: UIScreen.main.bounds.height * 0.6)
-            
-            Spacer()
-        }
-        .onAppear {
-            currentSphereType = SphereType(rawValue: selection) ?? .dawn
-        }
-        .onChange(of: selection) { newValue in
-            withAnimation(.easeInOut(duration: 0.3)) {
-                currentSphereType = SphereType(rawValue: newValue) ?? .dawn
             }
         }
     }
@@ -635,48 +511,6 @@ struct WhiteGlowingSphereView: View {
             glowIntensity = glowIntensity == AnimationConstants.sphereGlowIntensity ? 1.0 : AnimationConstants.sphereGlowIntensity
         }
     }
-}
-
-// MARK: - Child Bubble Model
-struct ChildBubble: Identifiable {
-    let id = UUID()
-    var position: CGPoint
-    var velocity: CGVector
-    var baseSize: CGFloat
-    var opacity: Double
-    let baseOpacity: Double
-    var age: Double = 0
-    let lifespan: Double
-    
-    init(position: CGPoint, velocity: CGVector, baseSize: CGFloat, opacity: Double, lifespan: Double) {
-        self.position = position
-        self.velocity = velocity
-        self.baseSize = baseSize
-        self.opacity = opacity
-        self.baseOpacity = opacity
-        self.lifespan = lifespan
-    }
-    
-    var currentSize: CGFloat {
-        return baseSize * CGFloat(opacity / baseOpacity)
-    }
-    
-    var radius: CGFloat { currentSize / 2 }
-}
-
-// MARK: - Burst Bubble Model
-struct BurstBubble: Identifiable {
-    let id = UUID()
-    var position: CGPoint
-    var velocity: CGVector
-    var baseSize: CGFloat
-    var opacity: Double
-    
-    var currentSize: CGFloat {
-        return baseSize * CGFloat(opacity)
-    }
-    
-    var radius: CGFloat { currentSize / 2 }
 }
 
 #Preview {
