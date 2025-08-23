@@ -56,6 +56,8 @@ struct MainMenuView: View {
     @State private var dragOffset: CGFloat = 0
     @State private var currentIndex: Int = 0
     
+    @StateObject private var soundManager = SoundManager.shared
+    
     // Timers
     private let starTimer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
     private let bubbleTimer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
@@ -87,6 +89,20 @@ struct MainMenuView: View {
                 // Background gradient - always visible
                 currentSphereType.backgroundGradient
                     .ignoresSafeArea()
+                
+                // Sound toggle button - always visible
+                VStack {
+                    HStack {
+                        SoundToggleButton(color: currentSphereType.baseColor)
+                            .padding(.leading, 20)
+                            .padding(.top, 50)
+                            .animation(.easeInOut(duration: 0.3), value: currentSphereType)
+                        Spacer()
+                    }
+                    Spacer()
+                }
+                .zIndex(100) // Ensure it's always on top
+
                 
                 // Animated stars - continue from onboarding or create new
                 ForEach(stars) { star in
@@ -225,6 +241,8 @@ struct MainMenuView: View {
                 }
                 currentSphereType = SphereType(rawValue: selection) ?? .dawn
                 currentIndex = selection
+                // Play the appropriate sphere BGM
+                soundManager.playTrack(soundManager.trackName(for: currentSphereType))
             }
             .onChange(of: selection) { newValue in
                 withAnimation(.easeInOut(duration: 0.3)) {
@@ -237,6 +255,10 @@ struct MainMenuView: View {
                     currentSphereType = SphereType.allCases[newValue]
                     selection = newValue
                 }
+            }
+            .onChange(of: currentSphereType) { newType in
+                // Change music when sphere type changes
+                soundManager.playTrack(soundManager.trackName(for: newType))
             }
             .onReceive(starTimer) { _ in
                 updateStars()

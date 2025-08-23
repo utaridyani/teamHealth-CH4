@@ -19,6 +19,7 @@ struct OnboardingView: View {
     // Big Bang Effect Manager
     @StateObject private var bigBangEffect = BigBangEffectManager()
     @StateObject private var enhancedBurst = EnhancedBurstManager()
+    @StateObject private var soundManager = SoundManager.shared
     
     // Star animation - shared with app
     @Binding var stars: [Star]
@@ -57,7 +58,16 @@ struct OnboardingView: View {
                 selectedSphereType.backgroundGradient
                     .opacity(1.0 - blackBackgroundOpacity)
                     .ignoresSafeArea()
-                
+                VStack {
+                    HStack {
+                        SoundToggleButton(color: .white)
+                            .padding(.leading, 20)
+                            .padding(.top, 50)
+                        Spacer()
+                    }
+                    Spacer()
+                }
+                .zIndex(100)
                 // Layer 3: Animated stars (opacity changes during transition)
                 ForEach(stars) { star in
                     let starPosition = star.position(centerX: screenWidth/2, centerY: screenHeight/2)
@@ -216,6 +226,7 @@ struct OnboardingView: View {
             .onAppear {
                 initializeStars()
                 selectedSphereType = .dawn
+                soundManager.playTrack("Onboarding")
             }
             .onReceive(animationTimer) { _ in
                 updateStars()
@@ -225,6 +236,8 @@ struct OnboardingView: View {
             .onChange(of: selection) { newValue in
                 withAnimation(.easeInOut(duration: 0.3)) {
                     selectedSphereType = SphereType(rawValue: newValue) ?? .dawn
+                    // Change music when sphere changes
+                    soundManager.playTrack(soundManager.trackName(for: selectedSphereType))
                 }
             }
             .gesture(
@@ -329,6 +342,8 @@ struct OnboardingView: View {
                 menuSphereScale = 1.0
                 sphereSelectionOpacity = 1.0
             }
+            // Transition to sphere music when selection appears
+            soundManager.playTrack(soundManager.trackName(for: selectedSphereType))
         }
         
         // Phase 3: Complete transition (4s)
@@ -493,6 +508,7 @@ struct WhiteGlowingSphereView: View {
                 breathingPhase += 0.03
             }
         }
+
     }
     
     private func startAnimations() {
