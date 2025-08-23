@@ -347,8 +347,8 @@ struct OnboardingView: View {
         }
         
         // Phase 3: Complete transition (4s)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
-            self.onComplete()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            onComplete() // This is the new line to be added
         }
     }
     

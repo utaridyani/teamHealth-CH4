@@ -5,34 +5,43 @@
 //  Created by Utari Dyani Laksmi on 14/08/25.
 //
 
-import SwiftUI
-import SwiftData
 
-@main
-struct teamHealthApp: App {
-    @StateObject var hapticData = HapticData()
-    @StateObject var selectedHaptic = SelectedHaptic()
+import SwiftUI
+
+struct CombinedView: View {
+    // State to manage the transition between onboarding and main menu
     @State private var showOnboarding = true
-    @State private var onboardingStars: [Star] = []
+    
+    // Shared state for the star animation and selected sphere
+    @State private var stars: [Star] = []
     @State private var selectedSphereType: SphereType = .dawn
     
-    var body: some Scene {
-        WindowGroup {
+    var body: some View {
+        ZStack {
             if showOnboarding {
                 OnboardingView(
-                    stars: $onboardingStars,
-                    selectedSphereType: $selectedSphereType
-                ) {
-                    showOnboarding = false
-                }
+                    stars: $stars,
+                    selectedSphereType: $selectedSphereType,
+                    onComplete: {
+                        // This closure is called when the onboarding animation finishes
+                        withAnimation(.easeInOut(duration: 1.0)) {
+                            showOnboarding = false
+                        }
+                    }
+                )
             } else {
                 MainMenuView(
-                    inheritedStars: onboardingStars,
+                    inheritedStars: stars,
                     initialSphereType: selectedSphereType
                 )
-                .environmentObject(selectedHaptic)
-                .environmentObject(hapticData)
+                // A subtle transition to fade in the main menu
+                .transition(.opacity)
             }
         }
     }
+}
+
+#Preview {
+    CombinedView()
+        .environmentObject(SelectedHaptic())
 }
