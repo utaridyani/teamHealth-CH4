@@ -60,10 +60,10 @@ struct OnboardingView: View {
                     .ignoresSafeArea()
                 VStack {
                     HStack {
-                        SoundToggleButton(color: .white)
-                            .padding(.leading, 20)
-                            .padding(.top, 50)
                         Spacer()
+                        SoundToggleButton(color: .white)
+                            .padding(.trailing, 20)
+                            .padding(.top, 50)
                     }
                     Spacer()
                 }
@@ -508,7 +508,7 @@ struct WhiteGlowingSphereView: View {
                 breathingPhase += 0.03
             }
         }
-
+        
     }
     
     private func startAnimations() {

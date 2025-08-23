@@ -93,16 +93,16 @@ struct MainMenuView: View {
                 // Sound toggle button - always visible
                 VStack {
                     HStack {
+                        Spacer()
                         SoundToggleButton(color: currentSphereType.baseColor)
-                            .padding(.leading, 20)
+                            .padding(.trailing, 20)
                             .padding(.top, 50)
                             .animation(.easeInOut(duration: 0.3), value: currentSphereType)
-                        Spacer()
                     }
                     Spacer()
                 }
                 .zIndex(100) // Ensure it's always on top
-
+                
                 
                 // Animated stars - continue from onboarding or create new
                 ForEach(stars) { star in
