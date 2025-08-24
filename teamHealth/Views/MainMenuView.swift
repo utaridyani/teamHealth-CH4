@@ -6,6 +6,12 @@
 
 import SwiftUI
 
+// Helper struct to use the touches dictionary in a ForEach loop
+fileprivate struct TouchPoint: Identifiable {
+    let id: Int
+    let position: CGPoint
+}
+
 struct MainMenuView: View {
     @EnvironmentObject var selectedHaptic: SelectedHaptic
     @StateObject private var bubbleManager = BubblePhysicsManager()
@@ -20,6 +26,13 @@ struct MainMenuView: View {
     // Sphere animation states
     @State private var sphereScale: CGFloat = 1.0
     @State private var sphereGlowIntensity: Double = AnimationConstants.sphereGlowIntensity
+    @State private var sphereBreathingPhase: CGFloat = 0
+    @State private var naturalBreathingPhase: CGFloat = 0
+    @State private var quickTapBreathing = false
+    
+    // Star burst effect for sphere selection
+    @State private var selectionBurstBubbles: [SelectionBurst] = []
+    @State private var showSelectionBurst = false
     
     // Expanded mode state
     @State private var isExpanded = false
@@ -46,6 +59,12 @@ struct MainMenuView: View {
     @State private var threeFingersHold = false
     let threeMoveTolerance: CGFloat = 30
     
+    // Carousel state for infinite scrolling
+    @State private var dragOffset: CGFloat = 0
+    @State private var currentIndex: Int = 0
+    
+    @StateObject private var soundManager = SoundManager.shared
+    
     // Timers
     private let starTimer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
     private let bubbleTimer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
@@ -53,18 +72,17 @@ struct MainMenuView: View {
     // Initializer to support inherited stars or create new ones
     init(inheritedStars: [Star] = [], initialSphereType: SphereType = .dawn) {
         if inheritedStars.isEmpty {
-            // Create new stars if none inherited
             self._stars = State(initialValue: (0..<100).map { index in
                 var star = Star()
                 star.distance = CGFloat(index) * 5.0 + CGFloat.random(in: 1...20)
                 return star
             })
         } else {
-            // Use inherited stars from onboarding
             self._stars = State(initialValue: inheritedStars)
         }
         self._currentSphereType = State(initialValue: initialSphereType)
         self._selection = State(initialValue: initialSphereType.rawValue)
+        self._currentIndex = State(initialValue: initialSphereType.rawValue)
     }
     
     var body: some View {
@@ -73,11 +91,21 @@ struct MainMenuView: View {
         
         GeometryReader { geo in
             ZStack {
-                // Background gradient - always visible
                 currentSphereType.backgroundGradient
                     .ignoresSafeArea()
                 
-                // Animated stars - continue from onboarding or create new
+                VStack {
+                    HStack {
+                        Spacer()
+                        SoundToggleButton(color: currentSphereType.baseColor)
+                            .padding(.trailing, 20)
+                            .padding(.top, 50)
+                            .animation(.easeInOut(duration: 0.3), value: currentSphereType)
+                    }
+                    Spacer()
+                }
+                .zIndex(100)
+                
                 ForEach(stars) { star in
                     let starPosition = star.position(centerX: screenWidth/2, centerY: screenHeight/2)
                     
@@ -89,47 +117,57 @@ struct MainMenuView: View {
                 }
                 
                 if !isExpanded {
-                    // Sphere selection mode
                     VStack {
                         Spacer()
                         
-                        TabView(selection: $selection) {
-                            ForEach(SphereType.allCases, id: \.rawValue) { sphereType in
-                                VStack(spacing: 40) {
-                                    GlowingSphereView(
-                                        sphereType: sphereType,
-                                        isActive: currentSphereType == sphereType,
-                                        scale: $sphereScale,
-                                        glowIntensity: $sphereGlowIntensity
+                        SphereCarouselView(
+                            currentIndex: $currentIndex,
+                            dragOffset: $dragOffset,
+                            currentSphereType: $currentSphereType,
+                            selection: $selection,
+                            sphereScale: $sphereScale,
+                            sphereGlowIntensity: $sphereGlowIntensity,
+                            sphereBreathingPhase: sphereBreathingPhase,
+                            naturalBreathingPhase: naturalBreathingPhase,
+                            quickTapBreathing: quickTapBreathing,
+                            isExpanded: isExpanded,
+                            createSphereGesture: createSphereGesture
+                        )
+                        .frame(height: geo.size.height)
+                        
+                        if showSelectionBurst {
+                            ForEach(selectionBurstBubbles) { burst in
+                                Circle()
+                                    .fill(
+                                        RadialGradient(
+                                            colors: [
+                                                Color.white.opacity(burst.opacity),
+                                                burst.color.opacity(burst.opacity * 0.8),
+                                                Color.clear
+                                            ],
+                                            center: .center,
+                                            startRadius: 2,
+                                            endRadius: burst.radius
+                                        )
                                     )
-                                    .gesture(createSphereGesture(for: sphereType))
-                                    
-                                    SphereLabelView(
-                                        sphereType: sphereType,
-                                        isExpanded: isExpanded
-                                    )
-                                }
-                                .tag(sphereType.rawValue)
+                                    .frame(width: burst.currentSize, height: burst.currentSize)
+                                    .position(burst.position)
+                                    .blur(radius: 1)
                             }
                         }
-                        .tabViewStyle(.page(indexDisplayMode: .never))
-                        .frame(height: geo.size.height * 0.6)
                         
                         Spacer()
                     }
                     .transition(.scale.combined(with: .opacity))
                     
                 } else {
-                    // Expanded bubble mode
                     ZStack {
-                        // Multitouch tracker
                         MultiTouchView(
                             onChange: { newTouches in
                                 handleTouchChange(newTouches)
                             },
                             isArmed: { threeFingersHold },
                             onRight: {
-                                // Three finger swipe right to go back
                                 withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                                     isExpanded = false
                                     bubbleManager.clearAll()
@@ -137,7 +175,6 @@ struct MainMenuView: View {
                                     threeFingersHold = false
                                     sphereScale = 1.0
                                     sphereGlowIntensity = AnimationConstants.sphereGlowIntensity
-                                    // Clean up idle timers
                                     cleanupIdleDetection()
                                 }
                                 HapticManager.selection()
@@ -145,7 +182,6 @@ struct MainMenuView: View {
                         )
                         .ignoresSafeArea()
                         
-                        // Animated bubbles
                         ForEach(bubbleManager.touchBubbles) { bubble in
                             Circle()
                                 .fill(
@@ -168,7 +204,13 @@ struct MainMenuView: View {
                                 .animation(.easeOut(duration: 0.1), value: bubble.position)
                         }
                         
-                        // Instructions overlay
+                        // Cursors that follow each finger with an offset
+                        ForEach(touches.map { TouchPoint(id: $0.key, position: $0.value) }) { touchPoint in
+                            TouchCursorView(color: currentSphereType.baseColor)
+                                .position(x: touchPoint.position.x, y: touchPoint.position.y - 45) // Apply vertical offset
+                                .transition(.opacity.combined(with: .scale))
+                        }
+                        
                         if threeFingersHold {
                             VStack {
                                 Text("Swipe right to go back")
@@ -193,25 +235,48 @@ struct MainMenuView: View {
                 }
             }
             .onAppear {
-                // Only initialize stars if they're empty (not inherited)
                 if stars.isEmpty {
                     initializeStars()
                 }
                 currentSphereType = SphereType(rawValue: selection) ?? .dawn
+                currentIndex = selection
+                soundManager.playTrack(soundManager.trackName(for: currentSphereType))
             }
             .onChange(of: selection) { newValue in
                 withAnimation(.easeInOut(duration: 0.3)) {
                     currentSphereType = SphereType(rawValue: newValue) ?? .dawn
+                    currentIndex = newValue
                 }
+            }
+            .onChange(of: currentIndex) { newValue in
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    currentSphereType = SphereType.allCases[newValue]
+                    selection = newValue
+                }
+            }
+            .onChange(of: currentSphereType) { newType in
+                soundManager.playTrack(soundManager.trackName(for: newType))
             }
             .onReceive(starTimer) { _ in
                 updateStars()
             }
             .onReceive(bubbleTimer) { _ in
+                naturalBreathingPhase += 0.03
+                
                 if isExpanded {
                     bubbleManager.updatePhysics()
-                    // Check for idle bubble collisions
                     checkIdleBubbleCollisions()
+                }
+                updateSelectionBurst()
+                if quickTapBreathing {
+                    sphereBreathingPhase += 0.15
+                    if sphereBreathingPhase > .pi * 2 {
+                        sphereBreathingPhase = 0
+                        quickTapBreathing = false
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            sphereScale = 1.0
+                        }
+                    }
                 }
             }
             .onDisappear {
@@ -221,127 +286,190 @@ struct MainMenuView: View {
         .navigationBarBackButtonHidden()
     }
     
-    // MARK: - Sphere Gesture
-    private func createSphereGesture(for sphereType: SphereType) -> some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { _ in
-                if !isPressing {
-                    isPressing = true
-                    
-                    // Initial haptic and animation
-                    triggerHaptic(for: sphereType.hapticID)
-                    
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.6, blendDuration: 0)) {
-                        sphereScale = 0.85
-                        sphereGlowIntensity = 1.3
-                    }
-                    
-                    // Hold to expand - same animation as onboarding but no burst
-                    let work = DispatchWorkItem {
-                        print("Expanding sphere \(sphereType.name)")
+    private func createSphereGesture(for sphereType: SphereType) -> AnyGesture<DragGesture.Value> {
+        return AnyGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    if !isPressing {
+                        isPressing = true
                         
-                        // Save selection
-                        selectedHaptic.selectedCircle = sphereType.hapticID
-                        selectedHaptic.selectedColor = sphereType.baseColor
-                        
-                        // Success haptic
-                        HapticManager.notification(.success)
-                        
-                        // Shrink sphere like onboarding, then expand mode
-                        withAnimation(.easeIn(duration: 0.3)) {
-                            sphereScale = 0.1
-                        }
-                        
-                        // Wait for shrink, then expand to bubble mode
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
-                                self.isExpanded = true
-                                self.sphereScale = 1.0
-                            }
-                        }
-                    }
-                    holdWork = work
-                    DispatchQueue.main.asyncAfter(deadline: .now() + AnimationConstants.sphereHoldDuration, execute: work)
-                    
-                } else {
-                    // Continuous haptic while holding
-                    let now = Date()
-                    if now.timeIntervalSince(lastHapticTime) > AnimationConstants.hapticInterval {
-                        lastHapticTime = now
                         triggerHaptic(for: sphereType.hapticID)
+                        
+                        quickTapBreathing = true
+                        sphereBreathingPhase = naturalBreathingPhase
+                        
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.6, blendDuration: 0)) {
+                            sphereScale = 0.85
+                            sphereGlowIntensity = 1.3
+                        }
+                        
+                        let work = DispatchWorkItem {
+                            print("Expanding sphere \(sphereType.name)")
+                            
+                            selectedHaptic.selectedCircle = sphereType.hapticID
+                            selectedHaptic.selectedColor = sphereType.baseColor
+                            
+                            HapticManager.notification(.success)
+                            
+                            self.isExpanded = true
+                        }
+                        holdWork = work
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0, execute: work)
+                        
+                    } else {
+                        let now = Date()
+                        if now.timeIntervalSince(lastHapticTime) > 0.2 {
+                            lastHapticTime = now
+                            triggerHaptic(for: sphereType.hapticID)
+                        }
                     }
                 }
-            }
-            .onEnded { _ in
-                isPressing = false
-                holdWork?.cancel()
-                holdWork = nil
-                
-                // Restore scale if not expanded
-                if !isExpanded {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                        sphereScale = 1.0
-                        sphereGlowIntensity = AnimationConstants.sphereGlowIntensity
+                .onEnded { _ in
+                    isPressing = false
+                    holdWork?.cancel()
+                    holdWork = nil
+                    
+                    if !isExpanded && !quickTapBreathing {
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.7, blendDuration: 0)) {
+                            sphereScale = 1.0
+                            sphereGlowIntensity = AnimationConstants.sphereGlowIntensity
+                        }
                     }
                 }
-            }
+        )
     }
     
-    // MARK: - Touch Handling for Expanded Mode
+    private func createSelectionStarBurst(for sphereType: SphereType) {
+        let screenWidth = UIScreen.main.bounds.width
+        let centerX = screenWidth / 2
+        let centerY = UIScreen.main.bounds.height * 0.4
+        
+        selectionBurstBubbles = []
+        
+        let starPoints = 5
+        
+        for point in 0..<starPoints {
+            let pointAngle = Double(point) * (2 * .pi / Double(starPoints))
+            
+            for ray in 0..<6 {
+                let spreadAngle = pointAngle + Double.random(in: -0.1...0.1)
+                let speed = CGFloat(200 + ray * 40)
+                
+                let initialVelocity = CGVector(
+                    dx: cos(Double(spreadAngle)) * speed,
+                    dy: sin(Double(spreadAngle)) * speed
+                )
+                
+                let burst = SelectionBurst(
+                    position: CGPoint(x: centerX, y: centerY),
+                    velocity: initialVelocity,
+                    baseSize: CGFloat.random(in: 20...40),
+                    opacity: Double.random(in: 0.7...1.0),
+                    color: sphereType.baseColor
+                )
+                selectionBurstBubbles.append(burst)
+            }
+        }
+        
+        for _ in 0..<15 {
+            let angle = Double.random(in: 0..<2 * .pi)
+            let speed = CGFloat.random(in: 100...250)
+            
+            let initialVelocity = CGVector(
+                dx: cos(Double(angle)) * speed,
+                dy: sin(Double(angle)) * speed
+            )
+            
+            let burst = SelectionBurst(
+                position: CGPoint(x: centerX, y: centerY),
+                velocity: initialVelocity,
+                baseSize: CGFloat.random(in: 15...30),
+                opacity: Double.random(in: 0.5...0.8),
+                color: sphereType.baseColor
+            )
+            selectionBurstBubbles.append(burst)
+        }
+        
+        withAnimation(.easeOut(duration: 0.2)) {
+            showSelectionBurst = true
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            showSelectionBurst = false
+            selectionBurstBubbles.removeAll()
+        }
+    }
+    
+    private func updateSelectionBurst() {
+        guard showSelectionBurst else { return }
+        
+        for i in selectionBurstBubbles.indices {
+            var burst = selectionBurstBubbles[i]
+            
+            burst.position.x += burst.velocity.dx * 0.016
+            burst.position.y += burst.velocity.dy * 0.016
+            
+            burst.opacity *= 0.97
+            
+            burst.velocity.dx *= 0.99
+            burst.velocity.dy *= 0.99
+            
+            selectionBurstBubbles[i] = burst
+        }
+        
+        selectionBurstBubbles.removeAll { $0.opacity < 0.05 }
+    }
+    
     private func handleTouchChange(_ newTouches: [Int: CGPoint]) {
-        let previousTouches = touches
-        touches = newTouches
-        bubbleManager.updateTouches(newTouches, sphereType: currentSphereType)
+        self.touches = newTouches
+        
+        // Create a new dictionary with the offset applied for the physics
+        var offsetTouches: [Int: CGPoint] = [:]
+        for (id, point) in newTouches {
+            offsetTouches[id] = CGPoint(x: point.x, y: point.y - 45)
+        }
+        
+        bubbleManager.updateTouches(offsetTouches, sphereType: currentSphereType)
         
         let now = Date()
         let screenHeight = UIScreen.main.bounds.height
         
-        // Process each touch
         for (id, point) in newTouches {
-            // Check if touch moved or is idle
-            if let previousPoint = previousTouches[id] {
+            if let previousPoint = self.touches[id] {
                 let dx = point.x - previousPoint.x
                 let dy = point.y - previousPoint.y
                 let movement = sqrt(dx*dx + dy*dy)
                 
                 if movement < idleThreshold {
-                    // Touch is idle or barely moving
                     if idleTouchPositions[id] == nil {
-                        // Just became idle
                         idleTouchPositions[id] = point
                         startIdleHapticTimer(for: id, at: point)
                     }
                 } else {
-                    // Touch is moving
                     stopIdleHapticTimer(for: id)
                     idleTouchPositions.removeValue(forKey: id)
                     
-                    // Play movement haptics - use selected sphere haptics only
                     if now.timeIntervalSince(lastTimes[id] ?? .distantPast) > AnimationConstants.hapticInterval {
                         lastTimes[id] = now
                         
-                        // Just play the selected sphere haptic based on vertical position
                         if let a = area(for: point.y, totalHeight: screenHeight) {
                             triggerHapticByCircle(for: currentSphereType.hapticID, area: a)
                         }
                     }
                 }
             } else {
-                // New touch
                 idleTouchPositions[id] = point
                 startIdleHapticTimer(for: id, at: point)
             }
         }
         
-        // Clean up removed touches
-        let removedTouches = Set(previousTouches.keys).subtracting(Set(newTouches.keys))
+        let removedTouches = Set(self.touches.keys).subtracting(Set(newTouches.keys))
         for id in removedTouches {
             stopIdleHapticTimer(for: id)
             idleTouchPositions.removeValue(forKey: id)
             lastTimes.removeValue(forKey: id)
         }
         
-        // Three finger hold detection
         let ids = Set(newTouches.keys)
         if ids.count == 3 {
             if ids != threeIDs {
@@ -381,18 +509,14 @@ struct MainMenuView: View {
         }
     }
     
-    // MARK: - Idle Haptic Management
     private func startIdleHapticTimer(for touchID: Int, at point: CGPoint) {
-        // Cancel existing timer if any
         stopIdleHapticTimer(for: touchID)
         
-        // Create repeating timer for idle haptics
         let timer = Timer.scheduledTimer(withTimeInterval: idleHapticInterval, repeats: true) { _ in
             self.playIdleHaptic(for: touchID, at: point)
         }
         idleTimers[touchID] = timer
         
-        // Play initial haptic immediately
         playIdleHaptic(for: touchID, at: point)
     }
     
@@ -402,14 +526,12 @@ struct MainMenuView: View {
     }
     
     private func playIdleHaptic(for touchID: Int, at point: CGPoint) {
-        // Check if finger is on a bubble
         for bubble in bubbleManager.touchBubbles {
             let dx = point.x - bubble.position.x
             let dy = point.y - bubble.position.y
             let distance = sqrt(dx*dx + dy*dy)
             
             if distance <= bubble.currentSize / 2 {
-                // Finger is idle on a bubble
                 let dir = direction(for: point, in: UIScreen.main.bounds)
                 playDirectionalBubbleHaptic(dir)
                 return
@@ -418,9 +540,7 @@ struct MainMenuView: View {
     }
     
     private func checkIdleBubbleCollisions() {
-        // Check idle touches against current bubble positions
         for (touchID, point) in idleTouchPositions {
-            // Bubbles may have moved, so check collision again
             var isOnBubble = false
             for bubble in bubbleManager.touchBubbles {
                 let dx = point.x - bubble.position.x
@@ -433,10 +553,8 @@ struct MainMenuView: View {
                 }
             }
             
-            // If idle touch moved off bubble, stop its timer
             if !isOnBubble && idleTimers[touchID] != nil {
                 stopIdleHapticTimer(for: touchID)
-                // Restart timer in case it moves onto another bubble
                 startIdleHapticTimer(for: touchID, at: point)
             }
         }
@@ -449,7 +567,6 @@ struct MainMenuView: View {
         idleTouchPositions.removeAll()
     }
     
-    // MARK: - Direction helper
     private func direction(for point: CGPoint, in bounds: CGRect) -> String {
         let third = bounds.width / 3
         switch point.x {
@@ -462,7 +579,6 @@ struct MainMenuView: View {
         }
     }
     
-    // MARK: - Star Management
     private func initializeStars() {
         if stars.isEmpty {
             stars = (0..<starCount).map { index in
@@ -487,7 +603,6 @@ struct MainMenuView: View {
         }
     }
     
-    // MARK: - Haptic Functions
     func area(for y: CGFloat, totalHeight: CGFloat) -> Int? {
         guard totalHeight > 0 else { return nil }
         let h = totalHeight / 3
@@ -530,28 +645,234 @@ struct MainMenuView: View {
         case "circle0":
             switch area {
             case 0: HapticManager.playAHAP(named: "dawn")
-            case 1: HapticManager.playAHAP(named: "dawn_75")
-            case 2: HapticManager.playAHAP(named: "dawn_50")
+            case 1: HapticManager.playAHAP(named: "dawn")
+            case 2: HapticManager.playAHAP(named: "dawn")
             default: break
             }
         case "circle1":
             switch area {
             case 0: HapticManager.playAHAP(named: "twilight")
-            case 1: HapticManager.playAHAP(named: "twilight_75")
-            case 2: HapticManager.playAHAP(named: "twilight_50")
+            case 1: HapticManager.playAHAP(named: "twilight")
+            case 2: HapticManager.playAHAP(named: "twilight")
             default: break
             }
         case "circle2":
             switch area {
             case 0: HapticManager.playAHAP(named: "reverie")
-            case 1: HapticManager.playAHAP(named: "reverie_75")
-            case 2: HapticManager.playAHAP(named: "reverie_50")
+            case 1: HapticManager.playAHAP(named: "reverie")
+            case 2: HapticManager.playAHAP(named: "reverie")
             default: break
             }
         default:
             break
         }
     }
+}
+
+// MARK: - Touch Cursor View
+struct TouchCursorView: View {
+    let color: Color
+    
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            color.opacity(0.4),
+                            color.opacity(0.6)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 90, height: 90)
+            
+            Circle()
+                .stroke(color.opacity(0.7), lineWidth: 3)
+                .frame(width: 90, height: 90)
+        }
+        .shadow(color: color.opacity(0.5), radius: 18, x: 0, y: 10)
+        .allowsHitTesting(false)
+    }
+}
+
+// MARK: - Sphere Carousel View
+struct SphereCarouselView: View {
+    @Binding var currentIndex: Int
+    @Binding var dragOffset: CGFloat
+    @Binding var currentSphereType: SphereType
+    @Binding var selection: Int
+    @Binding var sphereScale: CGFloat
+    @Binding var sphereGlowIntensity: Double
+    let sphereBreathingPhase: CGFloat
+    let naturalBreathingPhase: CGFloat
+    let quickTapBreathing: Bool
+    let isExpanded: Bool
+    let createSphereGesture: (SphereType) -> AnyGesture<DragGesture.Value>
+    
+    var body: some View {
+        GeometryReader { carouselGeo in
+            let carouselWidth = carouselGeo.size.width
+            let sphereSpacing: CGFloat = carouselWidth * 0.7
+            
+            ZStack {
+                ForEach(-2...4, id: \.self) { index in
+                    SphereCarouselItem(
+                        index: index,
+                        currentIndex: currentIndex,
+                        dragOffset: dragOffset,
+                        sphereSpacing: sphereSpacing,
+                        sphereScale: $sphereScale,
+                        sphereGlowIntensity: $sphereGlowIntensity,
+                        sphereBreathingPhase: sphereBreathingPhase,
+                        naturalBreathingPhase: naturalBreathingPhase,
+                        quickTapBreathing: quickTapBreathing,
+                        isExpanded: isExpanded,
+                        createSphereGesture: createSphereGesture
+                    )
+                }
+            }
+            .frame(width: carouselWidth, height: carouselGeo.size.height)
+            .clipped()
+            .gesture(createCarouselDragGesture())
+        }
+    }
+    
+    private func createCarouselDragGesture() -> some Gesture {
+        DragGesture()
+            .onChanged { value in
+                dragOffset = value.translation.width
+            }
+            .onEnded { value in
+                let dragThreshold: CGFloat = 50
+                let velocityThreshold: CGFloat = 300
+                
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                    if value.translation.width > dragThreshold || value.velocity.width > velocityThreshold {
+                        currentIndex = (currentIndex - 1 + SphereType.allCases.count) % SphereType.allCases.count
+                    } else if value.translation.width < -dragThreshold || value.velocity.width < -velocityThreshold {
+                        currentIndex = (currentIndex + 1) % SphereType.allCases.count
+                    }
+                    dragOffset = 0
+                    
+                    currentSphereType = SphereType.allCases[currentIndex]
+                    selection = currentIndex
+                }
+            }
+    }
+}
+
+// MARK: - Sphere Carousel Item
+struct SphereCarouselItem: View {
+    let index: Int
+    let currentIndex: Int
+    let dragOffset: CGFloat
+    let sphereSpacing: CGFloat
+    @Binding var sphereScale: CGFloat
+    @Binding var sphereGlowIntensity: Double
+    let sphereBreathingPhase: CGFloat
+    let naturalBreathingPhase: CGFloat
+    let quickTapBreathing: Bool
+    let isExpanded: Bool
+    let createSphereGesture: (SphereType) -> AnyGesture<DragGesture.Value>
+    
+    private var sphereIndex: Int {
+        var actualIndex = index
+        while actualIndex < 0 {
+            actualIndex += SphereType.allCases.count
+        }
+        return actualIndex % SphereType.allCases.count
+    }
+    
+    private var sphereType: SphereType {
+        SphereType.allCases[sphereIndex]
+    }
+    
+    private var isCurrentSphere: Bool {
+        sphereIndex == currentIndex
+    }
+    
+    private var relativePosition: Int {
+        var diff = index - currentIndex
+        
+        if diff > SphereType.allCases.count / 2 {
+            diff -= SphereType.allCases.count
+        } else if diff < -SphereType.allCases.count / 2 {
+            diff += SphereType.allCases.count
+        }
+        
+        return diff
+    }
+    
+    private var totalOffset: CGFloat {
+        CGFloat(relativePosition) * sphereSpacing + dragOffset
+    }
+    
+    private var finalScale: CGFloat {
+        if isCurrentSphere { return 1.0 }
+        
+        let distance = abs(relativePosition)
+        if distance == 1 {
+            return 0.7
+        }
+        return 0.5
+    }
+    
+    private var finalOpacity: Double {
+        if isCurrentSphere { return 1.0 }
+        
+        let distance = abs(relativePosition)
+        if distance == 1 {
+            return 0.4
+        } else if distance == 2 {
+            return 0.1
+        }
+        return 0
+    }
+    
+    var body: some View {
+        VStack(spacing: 40) {
+            GlowingSphereView(
+                sphereType: sphereType,
+                isActive: isCurrentSphere,
+                scale: $sphereScale,
+                glowIntensity: $sphereGlowIntensity,
+                breathingPhase: isCurrentSphere ? sphereBreathingPhase : 0,
+                idleBreathingPhase: isCurrentSphere ? naturalBreathingPhase : 0,
+                useCustomBreathing: isCurrentSphere && quickTapBreathing
+            )
+            .scaleEffect(finalScale)
+            .opacity(finalOpacity)
+            .gesture(createSphereGesture(sphereType))
+            
+            if isCurrentSphere {
+                SphereLabelView(
+                    sphereType: sphereType,
+                    isExpanded: isExpanded
+                )
+                .opacity(finalOpacity)
+            }
+        }
+        .offset(x: totalOffset)
+        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: totalOffset)
+    }
+}
+
+// MARK: - Selection Burst Model
+struct SelectionBurst: Identifiable {
+    let id = UUID()
+    var position: CGPoint
+    var velocity: CGVector
+    var baseSize: CGFloat
+    var opacity: Double
+    var color: Color
+    
+    var currentSize: CGFloat {
+        return baseSize * CGFloat(opacity)
+    }
+    
+    var radius: CGFloat { currentSize / 2 }
 }
 
 #Preview {

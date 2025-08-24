@@ -8,107 +8,109 @@
 import SwiftUI
 
 struct GlowingSphereView: View {
+    // Parameters from MainMenuView
     let sphereType: SphereType
     let isActive: Bool
     @Binding var scale: CGFloat
     @Binding var glowIntensity: Double
+    var breathingPhase: CGFloat = 0
+    var idleBreathingPhase: CGFloat = 0 // New property for idle animation
+    var useCustomBreathing: Bool = false
     
+    // Internal state for the sphere's own animations
     @State private var pulseAnimation = false
-    @State private var rotationAngle: Double = 0
-    @State private var breathingPhase: CGFloat = 0
     
     var body: some View {
+        let baseColor = sphereType.baseColor
+        // This logic now correctly chooses between the two parent-controlled phases
+        let currentBreathingPhase = useCustomBreathing ? breathingPhase : idleBreathingPhase
+        let finalScale = (1.0 + sin(currentBreathingPhase) * 0.08)
+        
         ZStack {
-            // Outer glow rings
-            if isActive {
-                ForEach(0..<3, id: \.self) { ring in
-                    Circle()
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    sphereType.baseColor.opacity(0.6 - Double(ring) * 0.2),
-                                    sphereType.baseColor.opacity(0.4 - Double(ring) * 0.15),
-                                    sphereType.baseColor.opacity(0.3 - Double(ring) * 0.1)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 2
-                        )
-                        .frame(width: 280 + CGFloat(ring * 30), height: 280 + CGFloat(ring * 30))
-                        .opacity(pulseAnimation ? 0.8 - Double(ring) * 0.2 : 0.3 - Double(ring) * 0.1)
-                        .scaleEffect(pulseAnimation ? 1.1 : 0.95)
-                        .rotationEffect(.degrees(rotationAngle + Double(ring * 30)))
-                }
-            }
+            // MARK: - Refined Bubble Sphere Design
             
-            // Main sphere with bouncy breathing
+            // 1. Dimmed Atmospheric Halo
+            Circle()
+                .fill(baseColor)
+                .frame(width: 230, height: 230)
+                .blur(radius: 40)
+                .opacity(isActive ? glowIntensity * 0.4 : 0.2)
+            
+            // Main sphere body and its harmonious reflections
             ZStack {
-                // Base sphere with gradient
+                // 2. Core Transparent Bubble
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: sphereType.gradientColors,
-                            center: UnitPoint(x: 0.35, y: 0.25),
-                            startRadius: 20,
-                            endRadius: 120
-                        )
-                    )
-                
-                // Anime-style highlight
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color.white.opacity(0.9),
-                                Color.white.opacity(0.3),
-                                Color.clear
-                            ],
-                            center: UnitPoint(x: 0.3, y: 0.2),
-                            startRadius: 10,
-                            endRadius: 50
-                        )
-                    )
-                
-                // Bottom shadow for depth
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color.clear,
-                                Color.black.opacity(0.1),
-                                Color.black.opacity(0.2)
-                            ],
-                            center: UnitPoint(x: 0.5, y: 0.8),
-                            startRadius: 40,
+                            gradient: Gradient(colors: [
+                                baseColor.opacity(0.25),
+                                baseColor.opacity(0.1),
+                                baseColor.opacity(0.2)
+                            ]),
+                            center: .center,
+                            startRadius: 0,
                             endRadius: 100
                         )
                     )
-            }
-            .frame(width: 220, height: 220)
-            .scaleEffect(scale * (1.0 + sin(breathingPhase) * 0.06))
-            
-            // Outer glow effect
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            sphereType.baseColor.opacity(0.6),
-                            sphereType.baseColor.opacity(0.3),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 60,
-                        endRadius: 130
+                
+                // 3. Main Glossy Reflection (top-left) - More natural gradient
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [.white.opacity(0.9), .white.opacity(0.0)]),
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 45
+                        )
                     )
-                )
-                .frame(width: 260, height: 260)
-                .scaleEffect(scale * (1.0 + sin(breathingPhase) * 0.04))
-                .opacity(glowIntensity)
-                .blur(radius: 10)
+                    .frame(width: 90, height: 90)
+                    .offset(x: -45, y: -50)
+                    .blur(radius: 2)
+                
+                // 4. Softer, Wider Highlight - Adds to the harmony
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [.white.opacity(0.4), .white.opacity(0.0)]),
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 80
+                        )
+                    )
+                    .frame(width: 160, height: 160)
+                    .offset(x: -30, y: -40)
+                    .blur(radius: 5)
+                    .opacity(0.8)
+                
+                // 5. Subtle Inner Light Source (bottom-right) - Gives volume
+                Circle()
+                    .fill(baseColor.opacity(0.4))
+                    .frame(width: 120, height: 120)
+                    .offset(x: 40, y: 40)
+                    .blur(radius: 40)
+                
+                // 6. Rim Highlight for a glassy edge
+                Circle()
+                    .stroke(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                .white.opacity(0.6),
+                                baseColor.opacity(0.1),
+                                .white.opacity(0.5)
+                            ]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 2.0
+                    )
+                    .blur(radius: 1)
+            }
+            .frame(width: 200, height: 200)
+            .clipShape(Circle())
+            .scaleEffect(finalScale * scale) // Apply combined scaling
+            .shadow(color: baseColor.opacity(0.3), radius: 20, x: 0, y: 0)
+            .shadow(color: Color.white.opacity(0.15), radius: 8, x: 0, y: 0)
         }
-        .shadow(color: sphereType.baseColor.opacity(0.5), radius: 30, x: 0, y: 0)
-        .shadow(color: sphereType.baseColor.opacity(0.3), radius: 15, x: 0, y: 0)
         .onAppear {
             if isActive {
                 startAnimations()
@@ -119,36 +121,39 @@ struct GlowingSphereView: View {
                 startAnimations()
             }
         }
-        .onReceive(Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()) { _ in
-            breathingPhase += 0.025
-        }
     }
     
     private func startAnimations() {
-        // Pulse animation
         withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
             pulseAnimation.toggle()
         }
         
-        // Slow rotation for outer rings
-        withAnimation(.linear(duration: 30).repeatForever(autoreverses: false)) {
-            rotationAngle = 360
-        }
-        
-        // Glow breathing
         withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
             glowIntensity = glowIntensity == AnimationConstants.sphereGlowIntensity ? 1.0 : AnimationConstants.sphereGlowIntensity
         }
     }
 }
 
+
 // MARK: - Sphere Label View
 struct SphereLabelView: View {
     let sphereType: SphereType
     let isExpanded: Bool
     
+    @State private var currentTextIndex = 0
+    @State private var textOpacity: Double = 1.0
+    @State private var timer: Timer?
+    
+    private let instructionTexts = [
+        "Tap to preview the vibration",
+        "Long press to open the vibration space"
+    ]
+    
+    private let displayDuration: TimeInterval = 3.0
+    private let fadeDuration: TimeInterval = 1.2
+    
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 24) {
             Text(sphereType.name)
                 .font(.system(size: 32, weight: .semibold, design: .rounded))
                 .foregroundStyle(
@@ -161,9 +166,39 @@ struct SphereLabelView: View {
                 .shadow(color: sphereType.baseColor.opacity(0.5), radius: 5, x: 0, y: 2)
             
             if !isExpanded {
-                Text("Long press to select")
-                    .font(.system(size: 16, weight: .medium, design: .rounded))
-                    .foregroundColor(.white.opacity(0.7))
+                ZStack {
+                    ForEach(0..<instructionTexts.count, id: \.self) { index in
+                        Text(instructionTexts[index])
+                            .font(.system(size: 16, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.7))
+                            .opacity(currentTextIndex == index ? textOpacity : 0)
+                    }
+                }
+                .onAppear(perform: startTextCycling)
+                .onDisappear {
+                    timer?.invalidate()
+                    timer = nil
+                }
+            }
+        }
+    }
+    
+    private func startTextCycling() {
+        textOpacity = 1.0
+        timer = Timer.scheduledTimer(withTimeInterval: displayDuration, repeats: true) { _ in
+            cycleText()
+        }
+    }
+    
+    private func cycleText() {
+        withAnimation(.easeOut(duration: fadeDuration)) {
+            textOpacity = 0
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + fadeDuration) {
+            currentTextIndex = (currentTextIndex + 1) % instructionTexts.count
+            withAnimation(.easeIn(duration: fadeDuration)) {
+                textOpacity = 1.0
             }
         }
     }
