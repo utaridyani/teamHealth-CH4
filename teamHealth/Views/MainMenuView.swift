@@ -204,10 +204,10 @@ struct MainMenuView: View {
                                 .animation(.easeOut(duration: 0.1), value: bubble.position)
                         }
                         
-                        // Cursors that follow each finger
+                        // Cursors that follow each finger with an offset
                         ForEach(touches.map { TouchPoint(id: $0.key, position: $0.value) }) { touchPoint in
                             TouchCursorView(color: currentSphereType.baseColor)
-                                .position(touchPoint.position) // This centers the cursor on the touch point
+                                .position(x: touchPoint.position.x, y: touchPoint.position.y - 45) // Apply vertical offset
                                 .transition(.opacity.combined(with: .scale))
                         }
                         
@@ -421,15 +421,21 @@ struct MainMenuView: View {
     }
     
     private func handleTouchChange(_ newTouches: [Int: CGPoint]) {
-        let previousTouches = touches
-        touches = newTouches
-        bubbleManager.updateTouches(newTouches, sphereType: currentSphereType)
+        self.touches = newTouches
+        
+        // Create a new dictionary with the offset applied for the physics
+        var offsetTouches: [Int: CGPoint] = [:]
+        for (id, point) in newTouches {
+            offsetTouches[id] = CGPoint(x: point.x, y: point.y - 45)
+        }
+        
+        bubbleManager.updateTouches(offsetTouches, sphereType: currentSphereType)
         
         let now = Date()
         let screenHeight = UIScreen.main.bounds.height
         
         for (id, point) in newTouches {
-            if let previousPoint = previousTouches[id] {
+            if let previousPoint = self.touches[id] {
                 let dx = point.x - previousPoint.x
                 let dy = point.y - previousPoint.y
                 let movement = sqrt(dx*dx + dy*dy)
@@ -457,7 +463,7 @@ struct MainMenuView: View {
             }
         }
         
-        let removedTouches = Set(previousTouches.keys).subtracting(Set(newTouches.keys))
+        let removedTouches = Set(self.touches.keys).subtracting(Set(newTouches.keys))
         for id in removedTouches {
             stopIdleHapticTimer(for: id)
             idleTouchPositions.removeValue(forKey: id)
@@ -680,14 +686,14 @@ struct TouchCursorView: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .frame(width: 80, height: 80)
+                .frame(width: 90, height: 90)
             
             Circle()
-                .stroke(color.opacity(0.7), lineWidth: 2.5)
-                .frame(width: 80, height: 80)
+                .stroke(color.opacity(0.7), lineWidth: 3)
+                .frame(width: 90, height: 90)
         }
-        .shadow(color: color.opacity(0.5), radius: 25, x: 0, y: 0) // Fixed: Removed y offset
-        .allowsHitTesting(true)
+        .shadow(color: color.opacity(0.5), radius: 18, x: 0, y: 10)
+        .allowsHitTesting(false)
     }
 }
 
