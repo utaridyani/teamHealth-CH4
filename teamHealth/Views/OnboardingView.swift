@@ -16,6 +16,9 @@ struct OnboardingView: View {
     @State private var lastHapticTime: Date = .distantPast
     @State private var isTransitioning = false
     @State private var showMainMenu = false
+    @State private var sphereCenter: CGPoint = .zero
+    
+    @State private var instructionText = "Tap to feel the vibration. \n"
     
     // Burst animation state
     @State private var burstBubbles: [BurstBubble] = []
@@ -74,80 +77,51 @@ struct OnboardingView: View {
                 
                 // Onboarding content that fades out
                 if !showMainMenu {
-                    if currentPage == 0 {
-                        // First page - "Express without word"
-                        VStack(spacing: 60) {
-                            VStack(spacing: 20) {
-                                Text("Express without word")
-                                    .font(.system(size: 32, weight: .semibold, design: .rounded))
-                                    .foregroundColor(.white)
-                                    .multilineTextAlignment(.center)
-                            }
-                            .padding(.top, 100)
-                            
-                            Spacer()
-                            
-                            // White Glowing Sphere (smaller)
-                            WhiteGlowingSphereView(
-                                isActive: true,
-                                scale: $sphereScale,
-                                glowIntensity: $sphereGlowIntensity,
-                                size: 160,
-                                enableBounce: true
-                            )
-                            .opacity(showBurst ? 0 : 1)
-                            .scaleEffect(showBurst ? 0.1 : 1)
-                            .animation(.easeIn(duration: 0.3), value: showBurst)
-                            .gesture(createSphereGesture())
-                            
-                            Spacer()
-                            
-                            VStack(spacing: 8) {
-                                Text("Say it with a living rhythm,")
-                                    .font(.system(size: 18, weight: .medium, design: .rounded))
-                                    .foregroundColor(.white.opacity(0.8))
-                                Text("when words won't land.")
-                                    .font(.system(size: 18, weight: .medium, design: .rounded))
-                                    .foregroundColor(.white.opacity(0.8))
-                            }
-                            .padding(.bottom, 80)
-                        }
-                        .opacity(1.0 - backgroundTransition)
-                        .transition(.opacity)
+                    
+                    VStack(spacing: 60) {
                         
-                    } else {
-                        // Second page - "Tap to feel the vibration"
-                        VStack(spacing: 60) {
-                            Spacer()
-                            
-                            // Larger White Glowing Sphere
-                            WhiteGlowingSphereView(
-                                isActive: true,
-                                scale: $sphereScale,
-                                glowIntensity: $sphereGlowIntensity,
-                                size: 200,
-                                enableBounce: true
-                            )
-                            .opacity(showBurst ? 0 : 1)
-                            .scaleEffect(showBurst ? 0.1 : 1)
-                            .animation(.easeIn(duration: 0.3), value: showBurst)
-                            .gesture(createSphereGesture())
-                            
-                            Spacer()
-                            
-                            VStack(spacing: 8) {
-                                Text("Tap to feel the vibration,")
-                                    .font(.system(size: 18, weight: .medium, design: .rounded))
-                                    .foregroundColor(.white.opacity(0.8))
-                                Text("hold to jump to the session.")
-                                    .font(.system(size: 18, weight: .medium, design: .rounded))
-                                    .foregroundColor(.white.opacity(0.8))
+                        // White Glowing Sphere (smaller)
+                        WhiteGlowingSphereView(
+                            isActive: true,
+                            scale: $sphereScale,
+                            glowIntensity: $sphereGlowIntensity,
+                            size: 160,
+                            enableBounce: true
+                        )
+                        .opacity(showBurst ? 0 : 1)
+                        .scaleEffect(showBurst ? 0.1 : 1)
+                        .animation(.easeIn(duration: 0.3), value: showBurst)
+                        .gesture(createSphereGesture())
+                        .padding(.top, 150)
+                        .background(
+                            GeometryReader { proxy in
+                                Color.clear.onAppear {
+                                    sphereCenter = CGPoint(
+                                        x: proxy.frame(in: .global).midX,
+                                        y: proxy.frame(in: .global).midY
+                                    )
+                                }
+                                .onChange(of: proxy.frame(in: .global)) { newFrame in
+                                    sphereCenter = CGPoint(x: newFrame.midX, y: newFrame.midY)
+                                }
                             }
-                            .padding(.bottom, 80)
+                        )
+                        
+                        Spacer()
+                        
+                        VStack(spacing: 6) {
+                            Text(instructionText)
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                .foregroundColor(.white.opacity(0.8))
+                                .multilineTextAlignment(.center)
+                            //                                Text("when words won't land.")
+                            //                                    .font(.system(size: 18, weight: .medium, design: .rounded))
+                            //                                    .foregroundColor(.white.opacity(0.8))
                         }
-                        .opacity(1.0 - backgroundTransition)
-                        .transition(.opacity)
+                        .padding(.bottom, 150)
                     }
+                    .opacity(1.0 - backgroundTransition)
+                    .transition(.opacity)
                 }
                 
                 // Main Menu that fades in
@@ -207,23 +181,6 @@ struct OnboardingView: View {
                     }
                     .allowsHitTesting(false)
                 }
-                
-                // Navigation dots
-                if !isTransitioning && !showMainMenu {
-                    VStack {
-                        Spacer()
-                        HStack(spacing: 12) {
-                            ForEach(0..<2, id: \.self) { index in
-                                Circle()
-                                    .fill(Color.white.opacity(currentPage == index ? 0.8 : 0.3))
-                                    .frame(width: 8, height: 8)
-                                    .scaleEffect(currentPage == index ? 1.2 : 1.0)
-                                    .animation(.easeInOut(duration: 0.3), value: currentPage)
-                            }
-                        }
-                        .padding(.bottom, 40)
-                    }
-                }
             }
             .onAppear {
                 initializeStars()
@@ -233,26 +190,17 @@ struct OnboardingView: View {
                 updateBurstBubbles()
                 updateChildBubbles()
             }
-            .gesture(
-                DragGesture()
-                    .onEnded { value in
-                        if !isTransitioning && !showBurst {
-                            if value.translation.width < -50 && currentPage == 0 {
-                                // Swipe left to next page
-                                withAnimation(.easeInOut(duration: 0.5)) {
-                                    currentPage = 1
-                                }
-                            } else if value.translation.width > 50 && currentPage == 1 {
-                                // Swipe right to previous page
-                                withAnimation(.easeInOut(duration: 0.5)) {
-                                    currentPage = 0
-                                }
-                            }
-                        }
-                    }
-            )
         }
         .navigationBarBackButtonHidden()
+        .onAppear {
+            initializeStars()
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                if !isPressing && !isTransitioning {
+                    instructionText = "Tap to feel the vibration. \nHold to continue."
+                }
+            }
+        }
     }
     
     // MARK: - Sphere Gesture
@@ -261,6 +209,8 @@ struct OnboardingView: View {
             .onChanged { _ in
                 if !isPressing && !isTransitioning {
                     isPressing = true
+                    
+                    instructionText = "Tap to feel the vibration. \nHold to continue."
                     
                     // Initial haptic and animation
                     HapticManager.playAHAP(named: "drum")
@@ -300,27 +250,28 @@ struct OnboardingView: View {
                     }
                 }
             }
+        
     }
+    
     
     // MARK: - Burst Animation
     private func triggerBurst() {
         isTransitioning = true
         
+        
         // Success haptic
         HapticManager.notification(.success)
         
         // Create burst bubbles - more intense burst
-        let centerX = UIScreen.main.bounds.width / 2
-        let centerY = UIScreen.main.bounds.height / 2
+        let centerX = sphereCenter.x
+        let centerY = sphereCenter.y
         
         // Main burst bubbles (larger, faster)
         burstBubbles = (0..<35).map { _ in
             let angle = Double.random(in: 0..<2 * .pi)
             let speed = CGFloat.random(in: 150...300)
-            let initialVelocity = CGVector(
-                dx: cos(angle) * speed,
-                dy: sin(angle) * speed
-            )
+            let initialVelocity = CGVector(dx: cos(angle) * speed,
+                                           dy: sin(angle) * speed)
             
             return BurstBubble(
                 position: CGPoint(x: centerX, y: centerY),
@@ -332,21 +283,19 @@ struct OnboardingView: View {
         
         // Child bubbles (smaller, more numerous)
         childBubbles = (0..<50).map { _ in
-            let angle = Double.random(in: 0..<2 * .pi)
-            let speed = CGFloat.random(in: 80...180)
-            let initialVelocity = CGVector(
-                dx: cos(angle) * speed,
-                dy: sin(angle) * speed
-            )
-            
-            return ChildBubble(
-                position: CGPoint(x: centerX, y: centerY),
-                velocity: initialVelocity,
-                baseSize: CGFloat.random(in: 8...25),
-                opacity: Double.random(in: 0.5...0.8),
-                lifespan: Double.random(in: 2.0...4.0)
-            )
-        }
+                let angle = Double.random(in: 0..<2 * .pi)
+                let speed = CGFloat.random(in: 80...180)
+                let initialVelocity = CGVector(dx: cos(angle) * speed,
+                                               dy: sin(angle) * speed)
+                
+                return ChildBubble(
+                    position: CGPoint(x: centerX, y: centerY),
+                    velocity: initialVelocity,
+                    baseSize: CGFloat.random(in: 8...25),
+                    opacity: Double.random(in: 0.5...0.8),
+                    lifespan: Double.random(in: 2.0...4.0)
+                )
+            }
         
         // Start burst animation
         withAnimation(.easeIn(duration: 0.3)) {

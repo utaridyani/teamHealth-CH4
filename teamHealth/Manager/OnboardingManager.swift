@@ -53,8 +53,8 @@ struct OnboardingManager: View {
                         Spacer()
                         NavigationLink(
                             destination: OnboardingView(
-                            stars = $stars,
-                            selectedSphereType = $selectedSphereType
+                                stars: $stars,
+                                selectedSphereType: $selectedSphereType
                             ){
                                 print("Onboarding complete from Manager")
                             }) {

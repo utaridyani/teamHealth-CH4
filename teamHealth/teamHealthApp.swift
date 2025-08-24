@@ -19,12 +19,13 @@ struct teamHealthApp: App {
     var body: some Scene {
         WindowGroup {
             if showOnboarding {
-                OnboardingView(
-                    stars: $onboardingStars,
-                    selectedSphereType: $selectedSphereType
-                ) {
-                    showOnboarding = false
-                }
+                OnboardingManager(
+//                    stars: $onboardingStars,
+//                    selectedSphereType: $selectedSphereType
+                )
+//                {
+//                    showOnboarding = false
+//                }
             } else {
                 MainMenuView(
                     inheritedStars: onboardingStars,
