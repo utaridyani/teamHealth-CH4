@@ -420,7 +420,10 @@ struct MainMenuView: View {
         selectionBurstBubbles.removeAll { $0.opacity < 0.05 }
     }
     
+    // MainMenuView.swift - Fixed handleTouchChange and haptic functions
+    
     private func handleTouchChange(_ newTouches: [Int: CGPoint]) {
+        let previousTouches = self.touches  // Store previous touches BEFORE updating
         self.touches = newTouches
         
         // Create a new dictionary with the offset applied for the physics
@@ -435,7 +438,7 @@ struct MainMenuView: View {
         let screenHeight = UIScreen.main.bounds.height
         
         for (id, point) in newTouches {
-            if let previousPoint = self.touches[id] {
+            if let previousPoint = previousTouches[id] {  // Now properly using previousTouches
                 let dx = point.x - previousPoint.x
                 let dy = point.y - previousPoint.y
                 let movement = sqrt(dx*dx + dy*dy)
@@ -458,18 +461,25 @@ struct MainMenuView: View {
                     }
                 }
             } else {
+                // New touch - play initial haptic
                 idleTouchPositions[id] = point
                 startIdleHapticTimer(for: id, at: point)
+                
+                // Play haptic for new touch
+                if let a = area(for: point.y, totalHeight: screenHeight) {
+                    triggerHapticByCircle(for: currentSphereType.hapticID, area: a)
+                }
             }
         }
         
-        let removedTouches = Set(self.touches.keys).subtracting(Set(newTouches.keys))
+        let removedTouches = Set(previousTouches.keys).subtracting(Set(newTouches.keys))
         for id in removedTouches {
             stopIdleHapticTimer(for: id)
             idleTouchPositions.removeValue(forKey: id)
             lastTimes.removeValue(forKey: id)
         }
         
+        // Three finger hold logic remains the same...
         let ids = Set(newTouches.keys)
         if ids.count == 3 {
             if ids != threeIDs {
@@ -642,25 +652,25 @@ struct MainMenuView: View {
     
     func triggerHapticByCircle(for circle: String, area: Int) {
         switch circle {
-        case "circle0":
+        case "circle0":  // Dawn
             switch area {
-            case 0: HapticManager.playAHAP(named: "dawn")
-            case 1: HapticManager.playAHAP(named: "dawn")
-            case 2: HapticManager.playAHAP(named: "dawn")
+            case 0: HapticManager.playAHAP(named: "dawn_75")     // Top - strongest
+            case 1: HapticManager.playAHAP(named: "dawn_50")     // Middle - medium
+            case 2: HapticManager.playAHAP(named: "dawn")        // Bottom - normal
             default: break
             }
-        case "circle1":
+        case "circle1":  // Twilight
             switch area {
-            case 0: HapticManager.playAHAP(named: "twilight")
-            case 1: HapticManager.playAHAP(named: "twilight")
-            case 2: HapticManager.playAHAP(named: "twilight")
+            case 0: HapticManager.playAHAP(named: "twilight_75") // Top - strongest
+            case 1: HapticManager.playAHAP(named: "twilight_50") // Middle - medium
+            case 2: HapticManager.playAHAP(named: "twilight")    // Bottom - normal
             default: break
             }
-        case "circle2":
+        case "circle2":  // Reverie
             switch area {
-            case 0: HapticManager.playAHAP(named: "reverie")
-            case 1: HapticManager.playAHAP(named: "reverie")
-            case 2: HapticManager.playAHAP(named: "reverie")
+            case 0: HapticManager.playAHAP(named: "reverie_75")  // Top - strongest
+            case 1: HapticManager.playAHAP(named: "reverie_50")  // Middle - medium
+            case 2: HapticManager.playAHAP(named: "reverie")     // Bottom - normal
             default: break
             }
         default:
