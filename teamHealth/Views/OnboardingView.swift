@@ -16,6 +16,8 @@ struct OnboardingView: View {
     @State private var lastHapticTime: Date = .distantPast
     @State private var isTransitioning = false
     
+    @State private var instructionText = "Tap to feel the vibration. \n"
+    
     // Big Bang Effect Manager
     @StateObject private var bigBangEffect = BigBangEffectManager()
     @StateObject private var particleManager = ParticleManager()  // Changed from enhancedBurst
@@ -82,18 +84,17 @@ struct OnboardingView: View {
                 // Layer 4: Onboarding content (fades out during transition)
                 if !showSphereSelection {
                     Group {
-                        if currentPage == 0 {
                             // First page
-                            VStack(spacing: 60) {
-                                VStack(spacing: 20) {
-                                    Text("Express without word")
-                                        .font(.system(size: 32, weight: .semibold, design: .rounded))
-                                        .foregroundColor(.white)
-                                        .multilineTextAlignment(.center)
-                                }
-                                .padding(.top, 100)
+                            VStack(spacing: 20) {
+//                                VStack(spacing: 20) {
+//                                    Text("Express without word")
+//                                        .font(.system(size: 32, weight: .semibold, design: .rounded))
+//                                        .foregroundColor(.white)
+//                                        .multilineTextAlignment(.center)
+//                                }
+//                                .padding(.top, 100)
                                 
-                                Spacer()
+//                                Spacer()
                                 
                                 // White Glowing Sphere
                                 WhiteGlowingSphereView(
@@ -103,52 +104,24 @@ struct OnboardingView: View {
                                     size: 160,
                                     enableBounce: true
                                 )
+                                .padding(.top, 200)
                                 .opacity(onboardingSphereOpacity)
                                 .scaleEffect(bigBangEffect.isExploding ? 0.01 : 1)
                                 .gesture(createSphereGesture())
                                 
                                 Spacer()
                                 
-                                VStack(spacing: 8) {
-                                    Text("Say it with a living rhythm,")
-                                        .font(.system(size: 18, weight: .medium, design: .rounded))
-                                        .foregroundColor(.white.opacity(0.8))
-                                    Text("when words won't land.")
-                                        .font(.system(size: 18, weight: .medium, design: .rounded))
-                                        .foregroundColor(.white.opacity(0.8))
-                                }
-                                .padding(.bottom, 80)
-                            }
+//                                VStack(spacing: 8) {
+//                                    Text("Say it with a living rhythm,")
+//                                        .font(.system(size: 18, weight: .medium, design: .rounded))
+//                                        .foregroundColor(.white.opacity(0.8))
+//                                    Text("when words won't land.")
+//                                        .font(.system(size: 18, weight: .medium, design: .rounded))
+//                                        .foregroundColor(.white.opacity(0.8))
+//                                }
+//                                .padding(.bottom, 80)
                             
-                        } else {
-                            // Second page
-                            VStack(spacing: 60) {
-                                Spacer()
-                                
-                                WhiteGlowingSphereView(
-                                    isActive: true,
-                                    scale: $sphereScale,
-                                    glowIntensity: $sphereGlowIntensity,
-                                    size: 200,
-                                    enableBounce: true
-                                )
-                                .opacity(onboardingSphereOpacity)
-                                .scaleEffect(bigBangEffect.isExploding ? 0.01 : 1)
-                                .gesture(createSphereGesture())
-                                
-                                Spacer()
-                                
-                                VStack(spacing: 8) {
-                                    Text("Tap to feel the vibration,")
-                                        .font(.system(size: 18, weight: .medium, design: .rounded))
-                                        .foregroundColor(.white.opacity(0.8))
-                                    Text("hold to jump to the session.")
-                                        .font(.system(size: 18, weight: .medium, design: .rounded))
-                                        .foregroundColor(.white.opacity(0.8))
-                                }
-                                .padding(.bottom, 80)
-                            }
-                        )
+                        }
                         
                         Spacer()
                         
@@ -161,7 +134,7 @@ struct OnboardingView: View {
                             //                                    .font(.system(size: 18, weight: .medium, design: .rounded))
                             //                                    .foregroundColor(.white.opacity(0.8))
                         }
-                        .padding(.bottom, 150)
+                        .padding(.top, 350)
                     }
                     .opacity(onboardingSphereOpacity)
                     .transition(.opacity)
@@ -215,24 +188,6 @@ struct OnboardingView: View {
                         
                         Spacer()
                     }
-                }
-                
-                // Navigation dots for onboarding
-                if !isTransitioning && !showSphereSelection {
-                    VStack {
-                        Spacer()
-                        HStack(spacing: 12) {
-                            ForEach(0..<2, id: \.self) { index in
-                                Circle()
-                                    .fill(Color.white.opacity(currentPage == index ? 0.8 : 0.3))
-                                    .frame(width: 8, height: 8)
-                                    .scaleEffect(currentPage == index ? 1.2 : 1.0)
-                                    .animation(.easeInOut(duration: 0.3), value: currentPage)
-                            }
-                        }
-                        .padding(.bottom, 40)
-                    }
-                    .opacity(onboardingSphereOpacity)
                 }
             }
             .onAppear {
