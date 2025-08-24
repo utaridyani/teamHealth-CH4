@@ -678,23 +678,25 @@ struct MainMenuView: View {
         switch circle {
         case "circle0":  // Dawn
             switch area {
-            case 0: HapticManager.playAHAP(named: "dawn_75")     // Top - strongest
-            case 1: HapticManager.playAHAP(named: "dawn_50")     // Middle - medium
-            case 2: HapticManager.playAHAP(named: "dawn")        // Bottom - normal
+            case 0: HapticManager.playAHAP(named: "dawn")
+            case 1: HapticManager.playAHAP(named: "dawn_75")     // Top - strongest
+            case 2: HapticManager.playAHAP(named: "dawn_50")     // Middle - medium
             default: break
             }
         case "circle1":  // Twilight
             switch area {
-            case 0: HapticManager.playAHAP(named: "twilight_75") // Top - strongest
-            case 1: HapticManager.playAHAP(named: "twilight_50") // Middle - medium
-            case 2: HapticManager.playAHAP(named: "twilight")    // Bottom - normal
+            case 0: HapticManager.playAHAP(named: "twilight")    // Bottom - normal
+            case 2: HapticManager.playAHAP(named: "twilight_75") // Top - strongest
+            case 3: HapticManager.playAHAP(named: "twilight_50") // Middle - medium
+
             default: break
             }
         case "circle2":  // Reverie
             switch area {
-            case 0: HapticManager.playAHAP(named: "reverie_75")  // Top - strongest
-            case 1: HapticManager.playAHAP(named: "reverie_50")  // Middle - medium
-            case 2: HapticManager.playAHAP(named: "reverie")     // Bottom - normal
+            case 0: HapticManager.playAHAP(named: "reverie")     // Bottom - normal
+            case 2: HapticManager.playAHAP(named: "reverie_75")  // Top - strongest
+            case 3: HapticManager.playAHAP(named: "reverie_50")  // Middle - medium
+
             default: break
             }
         default:
