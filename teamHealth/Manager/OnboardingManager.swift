@@ -1,10 +1,5 @@
-//
-//  OnboardingView.swift
-//  buzzle
-//
-//  Created by Henokh Abhinaya Tjahjadi on 19/08/25.
-//
 
+// OnboardingManager.swift
 import SwiftUI
 import Lottie
 
@@ -12,11 +7,20 @@ struct OnboardingManager: View {
     @State private var currentPage = 0
     let totalPages = 3
     
-    @State private var stars: [Star] = []
-    @State private var selectedSphereType: SphereType = .dawn
+    @Binding var stars: [Star]
+    @Binding var selectedSphereType: SphereType
+    let onComplete: () -> Void  // Add completion handler
+    
+    @State private var showOnboardingView = false
     
     var body: some View {
-        NavigationStack {
+        if showOnboardingView {
+            OnboardingView(
+                stars: $stars,
+                selectedSphereType: $selectedSphereType,
+                onComplete: onComplete  // Pass through the completion
+            )
+        } else {
             ZStack {
                 TabView(selection: $currentPage) {
                     OnBoard1()
@@ -26,7 +30,7 @@ struct OnboardingManager: View {
                     OnBoard3()
                         .tag(2)
                 }
-                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never)) // hide default dots
+                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                 .ignoresSafeArea()
                 
                 // Custom Page Control
@@ -36,7 +40,7 @@ struct OnboardingManager: View {
                         HStack(spacing: 8) {
                             ForEach(0..<totalPages, id: \.self) { index in
                                 Circle()
-                                    .fill(currentPage == index ? Color.whiteu : Color.secondary.opacity(0.4))
+                                    .fill(currentPage == index ? Color.white : Color.secondary.opacity(0.4))
                                     .frame(width: currentPage == index ? 12 : 8,
                                            height: currentPage == index ? 12 : 8)
                                     .animation(.spring(response: 0.3, dampingFraction: 0.7), value: currentPage)
@@ -52,23 +56,19 @@ struct OnboardingManager: View {
                     if currentPage == totalPages - 1 {
                         HStack {
                             Spacer()
-                            NavigationLink(
-                                destination: OnboardingView(
-                                    stars: $stars,
-                                    selectedSphereType: $selectedSphereType
-                                ){
-                                    print("Onboarding complete from Manager")
-                                }) {
+                            Button(action: {
+                                showOnboardingView = true
+                            }) {
                                 HStack(spacing: 6) {
                                     Text("Next")
                                     Image(systemName: "chevron.right")
                                         .imageScale(.small)
                                 }
                                 .font(.system(size: 16, weight: .bold, design: .default))
-                                .foregroundColor(.whiteu)
+                                .foregroundColor(.white)
                                 .padding(10)
                                 .padding(.horizontal, 5)
-                                .background(Color.darkgrey)
+                                .background(Color.gray.opacity(0.3))
                                 .cornerRadius(18)
                                 .shadow(radius: 4)
                             }
@@ -82,11 +82,4 @@ struct OnboardingManager: View {
             }
         }
     }
-}
-
-#Preview {
-    NavigationView{
-        OnboardingManager()
-    }
-    
 }
