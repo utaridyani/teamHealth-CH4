@@ -140,6 +140,18 @@ struct SphereLabelView: View {
     let sphereType: SphereType
     let isExpanded: Bool
     
+    @State private var currentTextIndex = 0
+    @State private var textOpacity: Double = 1.0
+    @State private var timer: Timer?
+    
+    private let instructionTexts = [
+        "Tap to preview the vibration",
+        "Long press to open the vibration space"
+    ]
+    
+    private let displayDuration: TimeInterval = 3.0 // How long each text is visible
+    private let fadeDuration: TimeInterval = 1.2 // How long the fade transition takes
+    
     var body: some View {
         VStack(spacing: 10) {
             Text(sphereType.name)
@@ -154,9 +166,48 @@ struct SphereLabelView: View {
                 .shadow(color: sphereType.baseColor.opacity(0.5), radius: 5, x: 0, y: 2)
             
             if !isExpanded {
-                Text("Long press to select")
-                    .font(.system(size: 16, weight: .medium, design: .rounded))
-                    .foregroundColor(.white.opacity(0.7))
+                ZStack {
+                    // Both texts layered, with opacity controlling visibility
+                    ForEach(0..<instructionTexts.count, id: \.self) { index in
+                        Text(instructionTexts[index])
+                            .font(.system(size: 16, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.7))
+                            .opacity(currentTextIndex == index ? textOpacity : 0)
+                    }
+                }
+                .onAppear {
+                    startTextCycling()
+                }
+                .onDisappear {
+                    timer?.invalidate()
+                    timer = nil
+                }
+            }
+        }
+    }
+    
+    private func startTextCycling() {
+        // Initial display
+        textOpacity = 1.0
+        
+        // Start the cycling timer
+        timer = Timer.scheduledTimer(withTimeInterval: displayDuration, repeats: true) { _ in
+            cycleText()
+        }
+    }
+    
+    private func cycleText() {
+        // Fade out current text
+        withAnimation(.easeOut(duration: fadeDuration)) {
+            textOpacity = 0
+        }
+        
+        // Wait for fade out, then switch text and fade in
+        DispatchQueue.main.asyncAfter(deadline: .now() + fadeDuration) {
+            currentTextIndex = (currentTextIndex + 1) % instructionTexts.count
+            
+            withAnimation(.easeIn(duration: fadeDuration)) {
+                textOpacity = 1.0
             }
         }
     }
