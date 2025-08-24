@@ -422,8 +422,9 @@ struct MainMenuView: View {
     
     // MainMenuView.swift - Fixed handleTouchChange and haptic functions
     
+
     private func handleTouchChange(_ newTouches: [Int: CGPoint]) {
-        let previousTouches = self.touches  // Store previous touches BEFORE updating
+        let previousTouches = self.touches
         self.touches = newTouches
         
         // Create a new dictionary with the offset applied for the physics
@@ -438,20 +439,23 @@ struct MainMenuView: View {
         let screenHeight = UIScreen.main.bounds.height
         
         for (id, point) in newTouches {
-            if let previousPoint = previousTouches[id] {  // Now properly using previousTouches
+            if let previousPoint = previousTouches[id] {
                 let dx = point.x - previousPoint.x
                 let dy = point.y - previousPoint.y
                 let movement = sqrt(dx*dx + dy*dy)
                 
                 if movement < idleThreshold {
+                    // Touch is idle - store position if not already stored
                     if idleTouchPositions[id] == nil {
                         idleTouchPositions[id] = point
-                        startIdleHapticTimer(for: id, at: point)
+                        // Don't start timer immediately - let checkIdleBubbleCollisions handle it
                     }
                 } else {
+                    // Touch is moving - clear idle state
                     stopIdleHapticTimer(for: id)
                     idleTouchPositions.removeValue(forKey: id)
                     
+                    // Play movement haptic
                     if now.timeIntervalSince(lastTimes[id] ?? .distantPast) > AnimationConstants.hapticInterval {
                         lastTimes[id] = now
                         
@@ -461,17 +465,17 @@ struct MainMenuView: View {
                     }
                 }
             } else {
-                // New touch - play initial haptic
+                // New touch - store as idle initially
                 idleTouchPositions[id] = point
-                startIdleHapticTimer(for: id, at: point)
                 
-                // Play haptic for new touch
+                // Play initial haptic
                 if let a = area(for: point.y, totalHeight: screenHeight) {
                     triggerHapticByCircle(for: currentSphereType.hapticID, area: a)
                 }
             }
         }
         
+        // Handle removed touches
         let removedTouches = Set(previousTouches.keys).subtracting(Set(newTouches.keys))
         for id in removedTouches {
             stopIdleHapticTimer(for: id)
@@ -519,15 +523,34 @@ struct MainMenuView: View {
         }
     }
     
+    private func isTouchOnBubble(_ point: CGPoint) -> Bool {
+        for bubble in bubbleManager.touchBubbles {
+            let dx = point.x - bubble.position.x
+            let dy = point.y - bubble.position.y
+            let distance = sqrt(dx*dx + dy*dy)
+            
+            if distance <= bubble.currentSize / 2 + 5 {
+                return true
+            }
+        }
+        return false
+    }
+    
+    
     private func startIdleHapticTimer(for touchID: Int, at point: CGPoint) {
         stopIdleHapticTimer(for: touchID)
         
+        // Check immediately if we're on a bubble
+        let offsetPoint = CGPoint(x: point.x, y: point.y - 45)
+        if isTouchOnBubble(offsetPoint) {
+            playIdleHaptic(for: touchID, at: point)
+        }
+        
+        // Start repeating timer
         let timer = Timer.scheduledTimer(withTimeInterval: idleHapticInterval, repeats: true) { _ in
             self.playIdleHaptic(for: touchID, at: point)
         }
         idleTimers[touchID] = timer
-        
-        playIdleHaptic(for: touchID, at: point)
     }
     
     private func stopIdleHapticTimer(for touchID: Int) {
@@ -536,12 +559,16 @@ struct MainMenuView: View {
     }
     
     private func playIdleHaptic(for touchID: Int, at point: CGPoint) {
+        // Apply the same offset as bubbles use
+        let offsetPoint = CGPoint(x: point.x, y: point.y - 45)
+        
         for bubble in bubbleManager.touchBubbles {
-            let dx = point.x - bubble.position.x
-            let dy = point.y - bubble.position.y
+            let dx = offsetPoint.x - bubble.position.x
+            let dy = offsetPoint.y - bubble.position.y
             let distance = sqrt(dx*dx + dy*dy)
             
-            if distance <= bubble.currentSize / 2 {
+            // Check if touch is within bubble radius (with a small tolerance)
+            if distance <= bubble.currentSize / 2 + 5 {
                 let dir = direction(for: point, in: UIScreen.main.bounds)
                 playDirectionalBubbleHaptic(dir)
                 return
@@ -549,23 +576,20 @@ struct MainMenuView: View {
         }
     }
     
+    
     private func checkIdleBubbleCollisions() {
         for (touchID, point) in idleTouchPositions {
-            var isOnBubble = false
-            for bubble in bubbleManager.touchBubbles {
-                let dx = point.x - bubble.position.x
-                let dy = point.y - bubble.position.y
-                let distance = sqrt(dx*dx + dy*dy)
-                
-                if distance <= bubble.currentSize / 2 {
-                    isOnBubble = true
-                    break
-                }
-            }
+            // Apply offset to match bubble positions
+            let offsetPoint = CGPoint(x: point.x, y: point.y - 45)
+            let isOnBubble = isTouchOnBubble(offsetPoint)
             
-            if !isOnBubble && idleTimers[touchID] != nil {
-                stopIdleHapticTimer(for: touchID)
+            // If touch is on a bubble and we don't have a timer, start one
+            if isOnBubble && idleTimers[touchID] == nil {
                 startIdleHapticTimer(for: touchID, at: point)
+            }
+            // If touch is NOT on a bubble and we have a timer, stop it
+            else if !isOnBubble && idleTimers[touchID] != nil {
+                stopIdleHapticTimer(for: touchID)
             }
         }
     }
