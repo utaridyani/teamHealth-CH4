@@ -18,7 +18,7 @@ struct OnboardingView: View {
     
     // Big Bang Effect Manager
     @StateObject private var bigBangEffect = BigBangEffectManager()
-    @StateObject private var enhancedBurst = EnhancedBurstManager()
+    @StateObject private var particleManager = ParticleManager()  // Changed from enhancedBurst
     @StateObject private var soundManager = SoundManager.shared
     
     // Star animation - shared with app
@@ -161,14 +161,13 @@ struct OnboardingView: View {
                     centerY: screenHeight / 2
                 )
                 
-                // Enhanced particles from burst
-                ForEach(enhancedBurst.particles) { particle in
+                // Lightweight particles (simplified from enhanced burst)
+                ForEach(particleManager.particles) { particle in
                     Circle()
-                        .fill(particle.color.opacity(particle.opacity))
-                        .frame(width: particle.size, height: particle.size)
+                        .fill(Color.white.opacity(particle.life))
+                        .frame(width: 6, height: 6)
                         .position(particle.position)
-                        .rotationEffect(.radians(particle.rotation))
-                        .blur(radius: particle.opacity < 0.5 ? 2 : 0)
+                        .blur(radius: particle.life < 0.5 ? 2 : 0)
                         .allowsHitTesting(false)
                 }
                 
@@ -230,8 +229,7 @@ struct OnboardingView: View {
             }
             .onReceive(animationTimer) { _ in
                 updateStars()
-                bigBangEffect.updateExplosion()
-                enhancedBurst.updateParticles()
+                particleManager.update()
             }
             .onChange(of: selection) { newValue in
                 withAnimation(.easeInOut(duration: 0.3)) {
@@ -311,10 +309,10 @@ struct OnboardingView: View {
     private func triggerBigBang() {
         isTransitioning = true
         
-        // Create enhanced particles at center
+        // Create particles at center
         let centerX = UIScreen.main.bounds.width / 2
         let centerY = UIScreen.main.bounds.height / 2
-        enhancedBurst.createBigBangParticles(at: CGPoint(x: centerX, y: centerY), count: 150)
+        particleManager.createBurst(at: CGPoint(x: centerX, y: centerY))  // Simplified
         
         // Trigger the big bang effect with stars
         bigBangEffect.triggerBigBang(stars: &stars)
@@ -369,22 +367,32 @@ struct OnboardingView: View {
         let maxDistance = sqrt(pow(screenWidth, 2) + pow(screenHeight, 2)) + 100
         
         for i in stars.indices {
-            // Normal movement
-            stars[i].distance += stars[i].speed / 300.0
+            // Update explosion if active
+            if bigBangEffect.isExploding {
+                stars[i].updateWithExplosion()
+            } else {
+                // Normal movement
+                stars[i].distance += stars[i].speed / 300.0
+            }
             
             // Reset stars that go too far
             if stars[i].distance > maxDistance {
                 stars[i] = Star()
                 // If we're exploding, give new stars some initial velocity
                 if bigBangEffect.isExploding {
-                    stars[i].speed = CGFloat.random(in: 100...300)
+                    stars[i].speed = CGFloat.random(in: 100...200)
                 }
             }
+        }
+        
+        // Clean up explosion data periodically when not exploding
+        if !bigBangEffect.isExploding {
+            Star.cleanupExplosionData()
         }
     }
 }
 
-// MARK: - White Glowing Sphere View
+// MARK: - White Glowing Sphere View (unchanged)
 struct WhiteGlowingSphereView: View {
     let isActive: Bool
     @Binding var scale: CGFloat
