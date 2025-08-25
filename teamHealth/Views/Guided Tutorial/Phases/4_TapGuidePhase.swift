@@ -15,6 +15,14 @@ struct TapGuidePhaseView: View {
     @State private var touches: [Int: CGPoint] = [:]
     @State private var lastTimes: [Int: Date] = [:]
     @State private var hasUserInteracted = false
+    @State private var activeTouchIDs: Set<Int> = []
+    @State private var tapFlashes: [TapFlash] = []
+
+    private struct TapFlash: Identifiable {
+        let id = UUID()
+        let position: CGPoint
+        let created = Date()
+    }
 
     // fake hold state
     private let fakeID: Int = -9999
@@ -48,23 +56,79 @@ struct TapGuidePhaseView: View {
                 ForEach(bubbleManager.touchBubbles) { bubble in
                     BubbleGlowView(bubble: bubble)
                 }
+                
+                // live touch circle
+                ForEach(Array(touches), id: \.key) { id, pos in
+                    TouchCursorView(color: SphereType.twilight.baseColor)
+                        .position(x: pos.x, y: pos.y - 45)
+                        .transition(.opacity.combined(with: .scale))
+                }
+
+                ForEach(tapFlashes) { flash in
+                    TouchCursorView(color: SphereType.twilight.baseColor)
+                        .position(x: flash.position.x, y: flash.position.y - 45)
+                        .transition(.opacity)
+                }
 
                 // instructuion text
                 if showText {
-                    Text(messages[messageIndex])
-                        .font(.system(size: 17, weight: .regular, design: .rounded))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(
-                          LinearGradient(
-                            colors: [Color.white, Color.white.opacity(0.5)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                          )
-                        )
-                        .transition(.opacity)
-                        .zIndex(10)
-                        .padding(.bottom, screenHeight-(screenHeight/1.5))
+                    ZStack {
+                        if messageIndex == 0 {
+                            Text(messages[0])
+                                .font(.system(size: 17, weight: .regular, design: .rounded))
+                                .fixedSize(horizontal: false, vertical: true)
+                                .multilineTextAlignment(.center)
+                                .foregroundStyle(
+                                  LinearGradient(
+                                    colors: [Color.white, Color.white.opacity(0.5)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                  )
+                                )
+                                .transition(.opacity)
+                                .zIndex(10)
+                                .padding(.bottom, screenHeight-(screenHeight/1.5))
+                                .id(messageIndex)
+                                .fadeInOnAppear(delay: 0.1, duration: 0.8)
+                        }
+                        else if messageIndex == 1 {
+                            Text(messages[1])
+                                .font(.system(size: 17, weight: .regular, design: .rounded))
+                                .fixedSize(horizontal: false, vertical: true)
+                                .multilineTextAlignment(.center)
+                                .foregroundStyle(
+                                  LinearGradient(
+                                    colors: [Color.white, Color.white.opacity(0.5)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                  )
+                                )
+                                .transition(.opacity)
+                                .zIndex(10)
+                                .padding(.bottom, screenHeight-(screenHeight/1.5))
+                                .id(messageIndex)
+                                .fadeInOnAppear(delay: 0.1, duration: 0.8)
+                        }
+                        else if messageIndex == 2 {
+                            Text(messages[2])
+                                .font(.system(size: 17, weight: .regular, design: .rounded))
+                                .fixedSize(horizontal: false, vertical: true)
+                                .multilineTextAlignment(.center)
+                                .foregroundStyle(
+                                  LinearGradient(
+                                    colors: [Color.white, Color.white.opacity(0.5)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                  )
+                                )
+                                .transition(.opacity)
+                                .zIndex(10)
+                                .padding(.bottom, screenHeight-(screenHeight/1.5))
+                                .id(messageIndex)
+                                .fadeInOnAppear(delay: 0.1, duration: 0.8)
+                        }
+                    }
+
                 }
 
                 // multitouch catcher
@@ -116,10 +180,14 @@ struct TapGuidePhaseView: View {
                 .onChanged { v in
                     hasUserInteracted = true
                     showingFakeHold = false
+                    touches = [0: v.location]
+                    activeTouchIDs = [0]
                     bubbleManager.updateTouches([0: v.location], sphereType: .twilight)
                     playHapticIfNeeded(for: 0)
                 }
                 .onEnded { _ in
+                    touches = [:]
+                    activeTouchIDs = []
                     bubbleManager.updateTouches([:], sphereType: .twilight)
                     lastTimes[0] = nil
                 }
@@ -138,25 +206,36 @@ struct TapGuidePhaseView: View {
 
     // MTouch handling
     private func handleTouches(_ newTouches: [Int: CGPoint]) {
-        // first real user touchto kill fake hold
-
+        // first real user touch kills fake hold
         if !newTouches.isEmpty {
             hasUserInteracted = true
             showingFakeHold = false
-            
-            for id in newTouches.keys {
-                playHapticIfNeeded(for: id)
-            }
         }
-        
+
+        for id in newTouches.keys { playHapticIfNeeded(for: id) }
+
+        let newIDs = Set(newTouches.keys).subtracting(activeTouchIDs)
+        for id in newIDs {
+            if let p = newTouches[id] { addTapFlash(at: p) }
+        }
+        activeTouchIDs = Set(newTouches.keys)
+
+        self.touches = newTouches
+
+        // keep fake hold
         lastTimes = lastTimes.filter { newTouches.keys.contains($0.key) }
-
         var effective = newTouches
-        if showingFakeHold {
-            effective[fakeID] = fakePoint
-        }
-
+        if showingFakeHold { effective[fakeID] = fakePoint }
         bubbleManager.updateTouches(effective, sphereType: .twilight)
+    }
+    
+    private func addTapFlash(at point: CGPoint) {
+        tapFlashes.append(TapFlash(position: point))
+        // cleanup after 0.6s
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            let cutoff = Date().addingTimeInterval(-0.6)
+            tapFlashes.removeAll { $0.created < cutoff }
+        }
     }
     
     private struct BubbleGlowView: View {
@@ -222,3 +301,5 @@ private struct TouchCatcherView: UIViewRepresentable {
         }
     }
 }
+
+

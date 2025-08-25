@@ -16,6 +16,9 @@ struct OnboardingManager: View {
     @State private var showOnboardingView = false
     
     var body: some View {
+        let screenWidth = UIScreen.main.bounds.width
+        let screenHeight = UIScreen.main.bounds.height
+        
         if showOnboardingView {
             OnboardingView(
                 stars: $stars,
@@ -44,8 +47,9 @@ struct OnboardingManager: View {
                         HStack {
                             Spacer()
                             SoundToggleButton(color: .white)
-                                .padding(.trailing, 20)
-                                .padding(.top, 50)
+                                .position(x: screenWidth * 0.86, y: screenHeight / 23)
+//                                .padding(.trailing, 20)
+//                                .padding(.top, 50)
                         }
                         Spacer()
                     }

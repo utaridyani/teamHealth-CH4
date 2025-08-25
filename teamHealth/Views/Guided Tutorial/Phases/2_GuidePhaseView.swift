@@ -36,7 +36,7 @@ struct GuidePhaseView: View {
             AmbientDecor(stars: $stars)
             VStack(spacing: 0) {
                 if !showBurst {
-                    Text("Long press the Twilight to\nopen the vibration space")
+                    Text("Long press the bubble to\nopen the vibration space")
                         .font(.system(size: 17, weight: .regular, design: .rounded))
                         .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.center)
@@ -47,7 +47,8 @@ struct GuidePhaseView: View {
                             endPoint: .bottom
                           )
                         )
-                        .transition(.opacity)   // fade out
+                        .fadeInOnAppear(delay: 0.1, duration: 0.8)
+                        .transition(.opacity)
                         .animation(.easeOut(duration: 0.3), value: showBurst)
                 }
                 
@@ -59,12 +60,12 @@ struct GuidePhaseView: View {
                             targetWidth: centerWidth,
                             targetHeight: centerHeight
                         )
-                        RescaledSphere(
-                            sphereType: sphereType,
-                            isActive: true,
-                            targetWidth: centerWidth,
-                            targetHeight: centerHeight
-                        )
+//                        RescaledSphere(
+//                            sphereType: sphereType,
+//                            isActive: true,
+//                            targetWidth: centerWidth,
+//                            targetHeight: centerHeight
+//                        )
                     }
                     .frame(width: centerWidth, height: centerHeight)
                     .scaleEffect(explodeScale)
@@ -76,11 +77,13 @@ struct GuidePhaseView: View {
                     .gesture(
                         LongPressGesture(minimumDuration: 1.0)
                             .onChanged { _ in
+                                HapticManager.playAHAP(named: "twilight")
                                 // Give it a little “press” feedback
                                 withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                                     sphereScale = 0.92
                                     sphereGlowIntensity = 1.25
                                 }
+                                HapticManager.playAHAP(named: "shockwave")
                             }
                             .onEnded { _ in
                                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -91,9 +94,9 @@ struct GuidePhaseView: View {
                                 }
                                 showBurst = true
                                 exploded = true
-                                explodeScale = 4    // how “big” the blowout feels
-                                explodeOpacity = 0.0   // vanish as it explodes
-                                explodeBlur = 18       // soft blur as it expands
+                                explodeScale = 4
+                                explodeOpacity = 0.0
+                                explodeBlur = 18
                             }
                     )
 
@@ -101,11 +104,14 @@ struct GuidePhaseView: View {
                     if showBurst {
                         SpectrumBurst(
                             baseColor: sphereType.baseColor,
-                            duration: 2.0,
+                            duration: 5.0,
                             maxScale: 8,
-                            repeatWaves: 5
+                            repeatWaves: 8
                         )
                         .allowsHitTesting(false)
+//                        .onAppear{
+//                            HapticManager.playAHAP(named: "shockwave")
+//                        }
                     }
                     
                     if exploded {

@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct MainTutorialView: View {
-    let onComplete: () -> Void 
+    let onComplete: () -> Void
     
     // MARK: Phases
     enum Phase { case carousel, guide, blank, tapguide, intensity, lasttext, swiperight }
@@ -16,13 +16,14 @@ struct MainTutorialView: View {
     struct Theme: Identifiable { let id = UUID(); let name: String; let color: Color }
     private let themes: [Theme] = [
         .init(name: "Dawn",     color: Color(hue: 0.72, saturation: 0.22, brightness: 0.98)),
-        .init(name: "Twilight", color: Color(hue: 0.55, saturation: 0.30, brightness: 0.96)),
-        .init(name: "Reverie",  color: Color(hue: 0.85, saturation: 0.28, brightness: 0.97))
+        .init(name: "Reverie",  color: Color(hue: 0.85, saturation: 0.28, brightness: 0.97)),
+        .init(name: "Twilight", color: Color(hue: 0.55, saturation: 0.30, brightness: 0.96))
+        
     ]
     
     @State private var index = 0
     @State private var advance = false
-    
+     
     // phase
     @State private var phase: Phase = .carousel
     
@@ -121,7 +122,7 @@ struct MainTutorialView: View {
             case .swiperight:
                 SwipeRightPhaseView(
                     stars: $stars,
-                    onComplete: onComplete 
+                    onComplete: onComplete
                 )
                     .transition(.opacity)
             }
@@ -253,15 +254,13 @@ struct AmbientDecor: View {
                         
                         // icon
                         Image(systemName: mute.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 20, height: 20)
+                            .font(.system(size: 20, weight: .medium))
                             .foregroundColor(.white)
                             // smooth morph  when user click
                             .contentTransition(.symbolEffect(.replace))
                             .animation(.easeInOut(duration: 0.3), value: mute.isMuted)
                     }
-                    .frame(width: 45, height: 45)
+                    .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.plain)
                 .position(x:screenWidth*0.86, y:screenHeight/9)

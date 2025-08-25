@@ -19,10 +19,10 @@ struct OnboardingView: View {
     @State private var lastHapticTime: Date = .distantPast
     @State private var isTransitioning = false
 
-    @State private var instructionText = "Tap to feel the vibration."
+    @State private var instructionText = "Tap to feel the vibration. \n"
 
     // Big Bang Effect Manager
-    @StateObject private var bigBangEffect = BigBangEffectManager()
+//    @StateObject private var bigBangEffect = BigBangEffectManager()
     @StateObject private var particleManager = ParticleManager()
     @StateObject private var soundManager = SoundManager.shared
 
@@ -47,6 +47,13 @@ struct OnboardingView: View {
     private let animationTimer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
 
     var onComplete: () -> Void
+    
+    // burst
+    @State private var showBurst = false
+    @State private var exploded = false
+    @State private var explodeScale: CGFloat = 1.0
+    @State private var explodeOpacity: Double = 1.0
+    @State private var explodeBlur: CGFloat = 0
 
     var body: some View {
         let screenWidth = UIScreen.main.bounds.width
@@ -71,8 +78,8 @@ struct OnboardingView: View {
                     HStack {
                         Spacer()
                         SoundToggleButton(color: .white)
-                            .position(x: screenWidth * 0.86, y: screenHeight / 23)
-                            .zIndex(100)
+                            .padding(.trailing, 20)
+                            .padding(.top, 50)
                     }
                     Spacer()
                 }
@@ -101,7 +108,10 @@ struct OnboardingView: View {
                             )
                             .padding(.top, 200)
                             .opacity(onboardingSphereOpacity)
-                            .scaleEffect(bigBangEffect.isExploding ? 0.01 : 1)
+//                            .scaleEffect(bigBangEffect.isExploding ? 0.01 : 1)
+                            .scaleEffect(explodeScale)
+                            .opacity(explodeOpacity)
+                            .blur(radius: explodeBlur)
                             .gesture(createSphereGesture())
 
                             Spacer()
@@ -122,11 +132,28 @@ struct OnboardingView: View {
                 }
 
                 // Layer 5: Big Bang Visual Effect
-                BigBangVisualEffect(
-                    effectManager: bigBangEffect,
-                    centerX: screenWidth / 2,
-                    centerY: screenHeight / 2
-                )
+//                BigBangVisualEffect(
+//                    effectManager: bigBangEffect,
+//                    centerX: screenWidth / 2,
+//                    centerY: screenHeight / 2
+//                )
+                if showBurst {
+                    SpectrumBurst(
+                        baseColor: .white,     // or: selectedSphereType.baseColor
+                        duration: 5.0,
+                        maxScale: 8,
+                        repeatWaves: 5
+                    )
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+                    .onAppear { HapticManager.playAHAP(named: "shockwave") }
+                }
+
+                if exploded {
+                    ExplodeEffect(baseColor: .white, shardCount: 26)
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
+                }
 
                 // Lightweight particles
                 ForEach(particleManager.particles) { particle in
@@ -169,6 +196,8 @@ struct OnboardingView: View {
                     }
                     .transition(.opacity)
                 }
+                
+                
             }
             .onAppear {
                 initializeStars()
@@ -190,7 +219,7 @@ struct OnboardingView: View {
             .gesture(
                 DragGesture()
                     .onEnded { value in
-                        if !isTransitioning && !bigBangEffect.isExploding && !showSphereSelection {
+                        if !isTransitioning && !showSphereSelection {
                             if value.translation.width < -50 && currentPage == 0 {
                                 withAnimation(.easeInOut(duration: 0.5)) { currentPage = 1 }
                             } else if value.translation.width > 50 && currentPage == 1 {
@@ -205,7 +234,7 @@ struct OnboardingView: View {
             initializeStars()
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                 if !isPressing && !isTransitioning {
-                    instructionText = "Hold to continue."
+                    instructionText = "Tap to feel the vibration. \nHold to continue."
                 }
             }
         }
@@ -217,7 +246,7 @@ struct OnboardingView: View {
             .onChanged { _ in
                 if !isPressing && !isTransitioning {
                     isPressing = true
-                    instructionText = "Hold to continue."
+                    instructionText = "Tap to feel the vibration. \nHold to continue."
 
                     HapticManager.playAHAP(named: "drum")
 
@@ -229,9 +258,25 @@ struct OnboardingView: View {
                     // Hold to complete onboarding with Big Bang
                     let work = DispatchWorkItem {
                         if !self.isTransitioning {
-                            self.triggerBigBang()
+                            // show burst + explode the sphere
+                            withAnimation(.easeOut(duration: 0.55)) {
+                                showBurst = true
+                                exploded = true
+                                explodeScale = 4.0       // how big the blowout gets
+                                explodeOpacity = 0.0     // fade out the sphere
+                                explodeBlur = 18.0       // softness
+                            }
+                            // fade out the whole onboarding content if you want it gone
+                            withAnimation(.easeOut(duration: 0.3)) {
+                                onboardingSphereOpacity = 0
+                            }
+                            // hand off to tutorial
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+                                onComplete()
+                            }
                         }
                     }
+                    
                     holdWork = work
                     DispatchQueue.main.asyncAfter(deadline: .now() + 3.0, execute: work)
 
@@ -256,6 +301,7 @@ struct OnboardingView: View {
                     }
                 }
             }
+        
     }
 
     // MARK: - Big Bang Trigger with Smooth Transition
@@ -268,7 +314,7 @@ struct OnboardingView: View {
         particleManager.createBurst(at: CGPoint(x: centerX, y: centerY))
 
         // Trigger the big bang effect with stars
-        bigBangEffect.triggerBigBang(stars: &stars)
+//        bigBangEffect.triggerBigBang(stars: &stars)
 
         // Fade out onboarding sphere immediately
         withAnimation(.easeOut(duration: 0.3)) {
@@ -320,20 +366,17 @@ struct OnboardingView: View {
         let maxDistance = sqrt(pow(screenWidth, 2) + pow(screenHeight, 2)) + 100
 
         for i in stars.indices {
-            if bigBangEffect.isExploding {
-                stars[i].updateWithExplosion()
-            } else {
-                stars[i].distance += stars[i].speed / 300.0
-            }
+            stars[i].distance += stars[i].speed / 300.0
             if stars[i].distance > maxDistance {
                 stars[i] = Star()
-                if bigBangEffect.isExploding {
-                    stars[i].speed = CGFloat.random(in: 100...200)
-                }
             }
         }
-        if !bigBangEffect.isExploding {
-            Star.cleanupExplosionData()
+        
+        for i in stars.indices {
+            stars[i].distance += stars[i].speed / 300.0
+            if stars[i].distance > maxDistance {
+                stars[i] = Star()
+            }
         }
     }
 }
@@ -454,3 +497,4 @@ struct WhiteGlowingSphereView: View {
         print("Onboarding completed")
     }
 }
+ 

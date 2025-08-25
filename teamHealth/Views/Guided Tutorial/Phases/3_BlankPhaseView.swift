@@ -30,6 +30,7 @@ struct BlankPhaseView: View {
                         endPoint: .bottom
                       )
                     )
+                    .fadeInOnAppear(delay: 0.1, duration: 0.8)
             }
         }
         .frame(width: screenWidth, height: screenHeight, alignment: .center)

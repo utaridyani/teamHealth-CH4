@@ -48,24 +48,36 @@ struct CarouselPhaseView: View {
             AmbientDecor(stars: $stars)
             
             VStack(spacing: 0) {
-                Text(settlePhase ? "Let's get started with the\nTwilight Bubble" : "There are three types of bubbles\nthat represent different vibrations")
-                    .font(.system(size: 17, weight: .regular, design: .rounded))
-                    .fixedSize(horizontal: false, vertical: true)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(
-                      LinearGradient(
-                        colors: [Color.white, Color.white.opacity(0.5)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                      )
-                    )
+                
+                ZStack {
+                    if settlePhase {
+                        Text("Let's get started with\nthis bubble")
+                            .fadeInOnAppear(delay: 0.1, duration: 0.8)
+                            .transition(.opacity)
+                    } else {
+                        Text("There are three types of bubbles\nthat represent different vibrations")
+                            .fadeInOnAppear(delay: 0.1, duration: 0.8)
+                            .transition(.opacity)
+                    }
+                }
+                .font(.system(size: 17, weight: .regular, design: .rounded))
+                .fixedSize(horizontal: false, vertical: true)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(
+                  LinearGradient(
+                    colors: [Color.white, Color.white.opacity(0.5)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                  )
+                )
+                .contentTransition(.opacity)
 
 
                 ZStack {
                     // LEFT
                     RescaledSphere(
                         sphereType: sphereType(for: prev),
-                        isActive: false,
+                        isActive: true,
                         targetWidth: sideWidth,
                         targetHeight: sideHeight
                     )
@@ -73,7 +85,7 @@ struct CarouselPhaseView: View {
                     .blur(radius: settlePhase ? 8 : 8)
                     .offset(x: advance ? offLeftX : leftX)
                     .opacity(settlePhase ? sideFade : 0.9)
-                    .zIndex(0.1)
+//                    .zIndex(0.1)
 
                     // CENTER
                     Group {
@@ -88,17 +100,17 @@ struct CarouselPhaseView: View {
                                     glowIntensity: $glowIntensity
                                 )
                                 .offset(x: centerX)
-                                .zIndex(0.4)
-                                RescaledSphere(
-                                    sphereType: .twilight,
-                                    isActive: true,
-                                    targetWidth: centerWidth,
-                                    targetHeight: centerHeight,
-                                    scale: $centerScale,
-                                    glowIntensity: $glowIntensity
-                                )
-                                .offset(x: centerX)
-                                .zIndex(0.4)
+//                                .zIndex(0.4)
+//                                RescaledSphere(
+//                                    sphereType: .twilight,
+//                                    isActive: true,
+//                                    targetWidth: centerWidth,
+//                                    targetHeight: centerHeight,
+//                                    scale: $centerScale,
+//                                    glowIntensity: $glowIntensity
+//                                )
+//                                .offset(x: centerX)
+//                                .zIndex(0.4)
                             }
 
                         } else {
@@ -111,20 +123,21 @@ struct CarouselPhaseView: View {
                                 )
                                 .compositingGroup()
                                 .blur(radius: advance ? 10 : 0)
-                                .opacity(advance ? 0.9 : 1)
+                                .opacity(advance ? 1 : 1)
                                 .offset(x: advance ? leftX : centerX)
-                                .zIndex(0.3)
-                                RescaledSphere(
-                                    sphereType: sphereType(for: current),
-                                    isActive: true,
-                                    targetWidth: advance ? sideWidth : centerWidth,
-                                    targetHeight: advance ? sideHeight : centerHeight
-                                )
-                                .compositingGroup()
-                                .blur(radius: advance ? 10 : 0)
-                                .opacity(advance ? 0.9 : 1)
-                                .offset(x: advance ? leftX : centerX)
-                                .zIndex(0.3)
+//                                .zIndex(0.3)
+                                
+//                                RescaledSphere(
+//                                    sphereType: sphereType(for: current),
+//                                    isActive: true,
+//                                    targetWidth: advance ? sideWidth : centerWidth,
+//                                    targetHeight: advance ? sideHeight : centerHeight
+//                                )
+//                                .compositingGroup()
+//                                .blur(radius: advance ? 10 : 0)
+//                                .opacity(advance ? 1 : 1)
+//                                .offset(x: advance ? leftX : centerX)
+////                                .zIndex(0.3)
                             }
 
                         }
@@ -133,7 +146,7 @@ struct CarouselPhaseView: View {
                     // RIGHT
                     RescaledSphere(
                         sphereType: sphereType(for: nextDisp),
-                        isActive: false,
+                        isActive: true,
                         targetWidth: (settlePhase ? sideWidth : (advance ? centerWidth : sideWidth)),
                         targetHeight: (settlePhase ? sideHeight : (advance ? centerHeight : sideHeight))
                     )
@@ -141,21 +154,21 @@ struct CarouselPhaseView: View {
                     .blur(radius: advance ? 0 : 10)
                     .offset(x: (settlePhase ? rightX : (advance ? centerX : rightX)))
                     .opacity(settlePhase ? sideFade : 1.0)
-                    .zIndex(0.5)
+//                    .zIndex(0.5)
 
                     // NEXT-NEXT (peek)
                     if hasMore && !settlePhase {
                         RescaledSphere(
                             sphereType: sphereType(for: nextNextDisp),
-                            isActive: false,
+                            isActive: true,
                             targetWidth: sideWidth,
                             targetHeight: sideHeight
                         )
                         .compositingGroup()
                         .blur(radius: 10)
                         .offset(x: advance ? rightX : newRightStartX)
-                        .opacity(0.95)
-                        .zIndex(0.6)
+                        .opacity(1.0)
+//                        .zIndex(0.6)
                     }
                 }
                 .padding(.top, -50)
@@ -180,7 +193,7 @@ struct CarouselPhaseView: View {
             .ignoresSafeArea()
             .navigationBarBackButtonHidden()
             .onAppear {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
                     play()
                 }
             }
@@ -189,7 +202,7 @@ struct CarouselPhaseView: View {
             .animation(.easeInOut(duration: 2), value: advance)
             .onChange(of: advance) { _, newValue in
                 guard newValue == true else { return }
-                let slideDuration = 1.0
+                let slideDuration = 1.5
                 DispatchQueue.main.asyncAfter(deadline: .now() + slideDuration) {
                     var tx = Transaction(); tx.disablesAnimations = true
                     withTransaction(tx) {
@@ -206,13 +219,13 @@ struct CarouselPhaseView: View {
                     if index >= themes.count - 1 {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                             settlePhase = true
-                            centerScale = 0.5
+                            centerScale = 1.0
                             sideFade = 1.0
-                            withAnimation(.easeInOut(duration: 2.0)) {
+                            withAnimation(.easeInOut(duration: 4.0)) {
                                 centerScale = 1.0
                                 sideFade = 0.0
                             }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
                                 onFinishedSlides()
                             }
                         }

@@ -31,6 +31,7 @@ struct SwipeRightPhaseView: View {
     @State private var blink = false
     @State private var offset = false
     
+    @State private var fadingOut = false
 
     var body: some View {
         let screenHeight = UIScreen.main.bounds.height
@@ -55,21 +56,31 @@ struct SwipeRightPhaseView: View {
                     .transition(.opacity)
                 }
                 
-                Text(threeFingersHold ? "Then swipe right" : "Long press with three fingers\nto close the vibration space")
-                    .font(.system(size: 17, weight: .regular, design: .rounded))
-                    .fixedSize(horizontal: false, vertical: true)
-                    .multilineTextAlignment(.leading)
-                    .foregroundStyle(
-                      LinearGradient(
-                        colors: [Color.white, Color.white.opacity(0.5)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                      )
-                    )
-                    .frame(width: labelWidth, alignment: .leading)
-                    .position(x: screenWidth/2.6, y:screenHeight/2.5)
-                    .transition(.opacity)
-                    .zIndex(10)
+                ZStack {
+                    if threeFingersHold {
+                        Text("Then swipe right")
+                            .fadeInOnAppear(delay: 0.1, duration: 0.8)
+                            .transition(.opacity)
+                    } else {
+                        Text("Long press with three fingers\nto close the vibration space")
+                            .fadeInOnAppear(delay: 0.1, duration: 0.8)
+                            .transition(.opacity)
+                    }
+                }
+                .font(.system(size: 17, weight: .regular, design: .rounded))
+                .fixedSize(horizontal: false, vertical: true)
+                .multilineTextAlignment(.leading)
+                .foregroundStyle(
+                  LinearGradient(
+                    colors: [Color.white, Color.white.opacity(0.5)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                  )
+                )
+                .frame(width: labelWidth, alignment: .leading)
+                .position(x: screenWidth/2.6, y:screenHeight/2.5)
+                .transition(.opacity)
+                .zIndex(10)
                     
                 
                 Circle()
@@ -82,6 +93,7 @@ struct SwipeRightPhaseView: View {
                     .animation(.easeInOut(duration: hintDuration), value: threeFingersHold)
                     .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true),
                                    value: blink)
+                    .fadeInOnAppear(delay: 0.1, duration: 0.8)
                 Circle()
                     .fill(Color.gray)
                     .opacity(blink ? 1.0 : 0.4)
@@ -92,6 +104,7 @@ struct SwipeRightPhaseView: View {
                     .animation(.easeInOut(duration: hintDuration), value: threeFingersHold)
                     .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true),
                                    value: blink)
+                    .fadeInOnAppear(delay: 0.1, duration: 0.8)
                 Circle()
                     .fill(Color.gray)
                     .opacity(blink ? 1.0 : 0.4 )
@@ -102,6 +115,7 @@ struct SwipeRightPhaseView: View {
                     .animation(.easeInOut(duration: hintDuration), value: threeFingersHold)
                     .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true),
                                    value: blink)
+                    .fadeInOnAppear(delay: 0.1, duration: 0.8)
 
                 // Full screen multitouch catcher
                 MultiTouchView(
@@ -110,8 +124,12 @@ struct SwipeRightPhaseView: View {
                     },
                     isArmed: { threeFingersHold },
                     onRight: {
-    //                    go to main menu after the
-                        onComplete()
+                        fadingOut = true
+                        
+                        // go to main menu after the
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                            onComplete()
+                        }
                         print("Three-finger swipe right triggered")
                     }
                 )
@@ -130,6 +148,8 @@ struct SwipeRightPhaseView: View {
                 blink = true
             }
         }
+        .opacity(fadingOut ? 0 : 1)
+        .animation(.easeInOut(duration: 1.0), value: fadingOut)
     }
 
     // MARK: - Hold logic

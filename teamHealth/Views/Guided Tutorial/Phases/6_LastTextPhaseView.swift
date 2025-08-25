@@ -21,19 +21,41 @@ struct LastTextPhaseView: View {
             AmbientDecor(stars: $stars)
             
             if showText {
-                Text(messages[messageIndex])
-                    .font(.system(size: 17, weight: .regular, design: .rounded))
-                    .fixedSize(horizontal: false, vertical: true)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(
-                      LinearGradient(
-                        colors: [Color.white, Color.white.opacity(0.5)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                      )
-                    )
-                    .transition(.opacity)
-                    .zIndex(10)
+                ZStack {
+                    if messageIndex == 0 {
+                        Text(messages[0])
+                            .font(.system(size: 17, weight: .regular, design: .rounded))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(
+                              LinearGradient(
+                                colors: [Color.white, Color.white.opacity(0.5)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                              )
+                            )
+                            .transition(.opacity)
+                            .zIndex(10)
+                            .fadeInOnAppear(delay: 0.1, duration: 0.8)
+                    }
+                    if messageIndex == 1 {
+                        Text(messages[1])
+                            .font(.system(size: 17, weight: .regular, design: .rounded))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(
+                              LinearGradient(
+                                colors: [Color.white, Color.white.opacity(0.5)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                              )
+                            )
+                            .transition(.opacity)
+                            .zIndex(10)
+                            .fadeInOnAppear(delay: 0.1, duration: 0.8)
+                    }
+                }
+
             }
         }
         .onAppear {
