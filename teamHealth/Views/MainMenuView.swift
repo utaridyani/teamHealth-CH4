@@ -117,46 +117,53 @@ struct MainMenuView: View {
                 }
                 
                 if !isExpanded {
-                    VStack {
-                        Spacer()
+                    ZStack {
+                        // Invisible full-screen drag area
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .gesture(createCarouselDragGesture())
                         
-                        SphereCarouselView(
-                            currentIndex: $currentIndex,
-                            dragOffset: $dragOffset,
-                            currentSphereType: $currentSphereType,
-                            selection: $selection,
-                            sphereScale: $sphereScale,
-                            sphereGlowIntensity: $sphereGlowIntensity,
-                            sphereBreathingPhase: sphereBreathingPhase,
-                            naturalBreathingPhase: naturalBreathingPhase,
-                            quickTapBreathing: quickTapBreathing,
-                            isExpanded: isExpanded,
-                            createSphereGesture: createSphereGesture
-                        )
-                        .frame(height: geo.size.height)
-                        
-                        if showSelectionBurst {
-                            ForEach(selectionBurstBubbles) { burst in
-                                Circle()
-                                    .fill(
-                                        RadialGradient(
-                                            colors: [
-                                                Color.white.opacity(burst.opacity),
-                                                burst.color.opacity(burst.opacity * 0.8),
-                                                Color.clear
-                                            ],
-                                            center: .center,
-                                            startRadius: 2,
-                                            endRadius: burst.radius
+                        VStack {
+                            Spacer()
+                            
+                            SphereCarouselView(
+                                currentIndex: $currentIndex,
+                                dragOffset: $dragOffset,
+                                currentSphereType: $currentSphereType,
+                                selection: $selection,
+                                sphereScale: $sphereScale,
+                                sphereGlowIntensity: $sphereGlowIntensity,
+                                sphereBreathingPhase: sphereBreathingPhase,
+                                naturalBreathingPhase: naturalBreathingPhase,
+                                quickTapBreathing: quickTapBreathing,
+                                isExpanded: isExpanded,
+                                createSphereGesture: createSphereGesture
+                            )
+                            .frame(height: geo.size.height)
+                            
+                            if showSelectionBurst {
+                                ForEach(selectionBurstBubbles) { burst in
+                                    Circle()
+                                        .fill(
+                                            RadialGradient(
+                                                colors: [
+                                                    Color.white.opacity(burst.opacity),
+                                                    burst.color.opacity(burst.opacity * 0.8),
+                                                    Color.clear
+                                                ],
+                                                center: .center,
+                                                startRadius: 2,
+                                                endRadius: burst.radius
+                                            )
                                         )
-                                    )
-                                    .frame(width: burst.currentSize, height: burst.currentSize)
-                                    .position(burst.position)
-                                    .blur(radius: 1)
+                                        .frame(width: burst.currentSize, height: burst.currentSize)
+                                        .position(burst.position)
+                                        .blur(radius: 1)
+                                }
                             }
+                            
+                            Spacer()
                         }
-                        
-                        Spacer()
                     }
                     .transition(.scale.combined(with: .opacity))
                     
@@ -284,6 +291,30 @@ struct MainMenuView: View {
             }
         }
         .navigationBarBackButtonHidden()
+    }
+    
+    // Add this function here - carousel drag gesture
+    private func createCarouselDragGesture() -> some Gesture {
+        DragGesture()
+            .onChanged { value in
+                dragOffset = value.translation.width
+            }
+            .onEnded { value in
+                let dragThreshold: CGFloat = 50
+                let velocityThreshold: CGFloat = 300
+                
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                    if value.translation.width > dragThreshold || value.velocity.width > velocityThreshold {
+                        currentIndex = (currentIndex - 1 + SphereType.allCases.count) % SphereType.allCases.count
+                    } else if value.translation.width < -dragThreshold || value.velocity.width < -velocityThreshold {
+                        currentIndex = (currentIndex + 1) % SphereType.allCases.count
+                    }
+                    dragOffset = 0
+                    
+                    currentSphereType = SphereType.allCases[currentIndex]
+                    selection = currentIndex
+                }
+            }
     }
     
     private func createSphereGesture(for sphereType: SphereType) -> AnyGesture<DragGesture.Value> {
@@ -732,7 +763,7 @@ struct TouchCursorView: View {
     }
 }
 
-// MARK: - Sphere Carousel View
+// MARK: - Sphere Carousel View (without gesture)
 struct SphereCarouselView: View {
     @Binding var currentIndex: Int
     @Binding var dragOffset: CGFloat
@@ -770,31 +801,7 @@ struct SphereCarouselView: View {
             }
             .frame(width: carouselWidth, height: carouselGeo.size.height)
             .clipped()
-            .gesture(createCarouselDragGesture())
         }
-    }
-    
-    private func createCarouselDragGesture() -> some Gesture {
-        DragGesture()
-            .onChanged { value in
-                dragOffset = value.translation.width
-            }
-            .onEnded { value in
-                let dragThreshold: CGFloat = 50
-                let velocityThreshold: CGFloat = 300
-                
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                    if value.translation.width > dragThreshold || value.velocity.width > velocityThreshold {
-                        currentIndex = (currentIndex - 1 + SphereType.allCases.count) % SphereType.allCases.count
-                    } else if value.translation.width < -dragThreshold || value.velocity.width < -velocityThreshold {
-                        currentIndex = (currentIndex + 1) % SphereType.allCases.count
-                    }
-                    dragOffset = 0
-                    
-                    currentSphereType = SphereType.allCases[currentIndex]
-                    selection = currentIndex
-                }
-            }
     }
 }
 
