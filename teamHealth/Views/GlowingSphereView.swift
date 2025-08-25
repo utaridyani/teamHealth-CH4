@@ -22,95 +22,116 @@ struct GlowingSphereView: View {
     
     var body: some View {
         let baseColor = sphereType.baseColor
+        // Create complementary colors based on the base color
+        let primaryGlow = baseColor
+        let secondaryGlow = baseColor.opacity(0.7)
+        let tertiaryGlow = Color.white.opacity(0.8)
+        
         // This logic now correctly chooses between the two parent-controlled phases
         let currentBreathingPhase = useCustomBreathing ? breathingPhase : idleBreathingPhase
         let finalScale = (1.0 + sin(currentBreathingPhase) * 0.08)
         
         ZStack {
-            // MARK: - Refined Bubble Sphere Design
+            // MARK: - Anime-Style Sphere Design (Updated with dynamic colors)
             
-            // 1. Dimmed Atmospheric Halo
-            Circle()
-                .fill(baseColor)
-                .frame(width: 230, height: 230)
-                .blur(radius: 40)
-                .opacity(isActive ? glowIntensity * 0.4 : 0.2)
+            // Subtle outer glow (only for active spheres)
+            if isActive {
+                ForEach(0..<2, id: \.self) { ring in
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    primaryGlow.opacity(0.05 - Double(ring) * 0.08),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 120 + CGFloat(ring * 40),
+                                endRadius: 180 + CGFloat(ring * 60)
+                            )
+                        )
+                        .frame(width: 300 + CGFloat(ring * 50), height: 300 + CGFloat(ring * 50))
+                        .opacity(pulseAnimation ? 0.6 - Double(ring) * 0.2 : 0.2 - Double(ring) * 0.1)
+                        .scaleEffect(pulseAnimation ? 1.05 : 0.98)
+                }
+            }
             
-            // Main sphere body and its harmonious reflections
+            // Main circle with anime-style shading - updated gradient
             ZStack {
-                // 2. Core Transparent Bubble
+                // Base circle with vibrant gradient using baseColor
                 Circle()
                     .fill(
                         RadialGradient(
-                            gradient: Gradient(colors: [
-                                baseColor.opacity(0.25),
-                                baseColor.opacity(0.1),
-                                baseColor.opacity(0.2)
-                            ]),
-                            center: .center,
-                            startRadius: 0,
+                            colors: [
+                                Color.white,
+                                tertiaryGlow,
+                                primaryGlow.opacity(0.9),
+                                baseColor.opacity(0.8)
+                            ],
+                            center: UnitPoint(x: 0.35, y: 0.25),
+                            startRadius: 15,
                             endRadius: 100
                         )
                     )
                 
-                // 3. Main Glossy Reflection (top-left) - More natural gradient
+                // Anime highlight
                 Circle()
                     .fill(
                         RadialGradient(
-                            gradient: Gradient(colors: [.white.opacity(0.9), .white.opacity(0.0)]),
-                            center: .center,
-                            startRadius: 0,
+                            colors: [
+                                Color.white.opacity(0.9),
+                                Color.white.opacity(0.3),
+                                Color.clear
+                            ],
+                            center: UnitPoint(x: 0.3, y: 0.2),
+                            startRadius: 8,
                             endRadius: 45
                         )
                     )
-                    .frame(width: 90, height: 90)
-                    .offset(x: -45, y: -50)
-                    .blur(radius: 2)
-                
-                // 4. Softer, Wider Highlight - Adds to the harmony
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            gradient: Gradient(colors: [.white.opacity(0.4), .white.opacity(0.0)]),
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: 80
-                        )
-                    )
-                    .frame(width: 160, height: 160)
-                    .offset(x: -30, y: -40)
-                    .blur(radius: 5)
-                    .opacity(0.8)
-                
-                // 5. Subtle Inner Light Source (bottom-right) - Gives volume
-                Circle()
-                    .fill(baseColor.opacity(0.4))
-                    .frame(width: 120, height: 120)
-                    .offset(x: 40, y: 40)
-                    .blur(radius: 40)
-                
-                // 6. Rim Highlight for a glassy edge
-                Circle()
-                    .stroke(
-                        LinearGradient(
-                            gradient: Gradient(colors: [
-                                .white.opacity(0.6),
-                                baseColor.opacity(0.1),
-                                .white.opacity(0.5)
-                            ]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 2.0
-                    )
-                    .blur(radius: 1)
             }
             .frame(width: 200, height: 200)
-            .clipShape(Circle())
-            .scaleEffect(finalScale * scale) // Apply combined scaling
-            .shadow(color: baseColor.opacity(0.3), radius: 20, x: 0, y: 0)
-            .shadow(color: Color.white.opacity(0.15), radius: 8, x: 0, y: 0)
+            .scaleEffect(finalScale * scale)
+            
+            // Inner glow effect - now using baseColor variations
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            primaryGlow.opacity(isActive ? 0.5 : 0.2),
+                            secondaryGlow.opacity(isActive ? 0.3 : 0.1),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 60,
+                        endRadius: 90
+                    )
+                )
+                .frame(width: 220, height: 220)
+                .scaleEffect(finalScale * scale)
+                .opacity(isActive ? glowIntensity : 0.9)
+            
+            // Sparkle effects (only when active) - updated with baseColor
+//            if isActive {
+//                ForEach(0..<8, id: \.self) { sparkle in
+//                    Image(systemName: "sparkles")
+//                        .font(.system(size: 16, weight: .bold))
+//                        .foregroundStyle(
+//                            LinearGradient(
+//                                colors: [.white, primaryGlow, baseColor],
+//                                startPoint: .topLeading,
+//                                endPoint: .bottomTrailing
+//                            )
+//                        )
+//                        .scaleEffect(pulseAnimation ? 1.2 : 0.8)
+//                        .opacity(pulseAnimation ? 0.9 : 0.5)
+//                        .offset(
+//                            x: cos(Double(sparkle) * .pi / 4) * 140,
+//                            y: sin(Double(sparkle) * .pi / 4) * 140
+//                        )
+//                }
+//            }
         }
+        .shadow(color: primaryGlow.opacity(0.7), radius: 25, x: 0, y: 0)
+        .shadow(color: baseColor.opacity(0.5), radius: 12, x: 0, y: 0)
         .onAppear {
             if isActive {
                 startAnimations()

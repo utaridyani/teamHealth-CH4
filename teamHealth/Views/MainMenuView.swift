@@ -324,14 +324,34 @@ struct MainMenuView: View {
                     if !isPressing {
                         isPressing = true
                         
+                        // Enhanced haptic feedback (matching ContentView)
+                        let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+                        impactFeedback.impactOccurred()
+                        
                         triggerHaptic(for: sphereType.hapticID)
                         
                         quickTapBreathing = true
                         sphereBreathingPhase = naturalBreathingPhase
                         
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.6, blendDuration: 0)) {
-                            sphereScale = 0.85
-                            sphereGlowIntensity = 1.3
+                        // Anime-style bounce with overshoot (matching ContentView)
+                        withAnimation(.interpolatingSpring(stiffness: 300, damping: 5)) {
+                            sphereScale = 0.7
+                            sphereGlowIntensity = 1.5
+                        }
+                        
+                        // First bounce up
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            withAnimation(.interpolatingSpring(stiffness: 200, damping: 8)) {
+                                sphereScale = 1.1
+                            }
+                        }
+                        
+                        // Settle back to normal
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            withAnimation(.interpolatingSpring(stiffness: 300, damping: 10)) {
+                                sphereScale = 1.0
+                                sphereGlowIntensity = AnimationConstants.sphereGlowIntensity
+                            }
                         }
                         
                         let work = DispatchWorkItem {
@@ -359,13 +379,6 @@ struct MainMenuView: View {
                     isPressing = false
                     holdWork?.cancel()
                     holdWork = nil
-                    
-                    if !isExpanded && !quickTapBreathing {
-                        withAnimation(.spring(response: 0.5, dampingFraction: 0.7, blendDuration: 0)) {
-                            sphereScale = 1.0
-                            sphereGlowIntensity = AnimationConstants.sphereGlowIntensity
-                        }
-                    }
                 }
         )
     }
@@ -780,7 +793,8 @@ struct SphereCarouselView: View {
     var body: some View {
         GeometryReader { carouselGeo in
             let carouselWidth = carouselGeo.size.width
-            let sphereSpacing: CGFloat = carouselWidth * 0.7
+            // Reduced spacing so adjacent spheres peek into view
+            let sphereSpacing: CGFloat = carouselWidth * 0.58  // Changed from 0.7 to 0.45
             
             ZStack {
                 ForEach(-2...4, id: \.self) { index in
@@ -806,6 +820,7 @@ struct SphereCarouselView: View {
 }
 
 // MARK: - Sphere Carousel Item
+// MARK: - Sphere Carousel Item (Updated with blur and alignment)
 struct SphereCarouselItem: View {
     let index: Int
     let currentIndex: Int
@@ -873,28 +888,57 @@ struct SphereCarouselItem: View {
         return 0
     }
     
+    private var blurRadius: CGFloat {
+        if isCurrentSphere { return 0 }
+        
+        let distance = abs(relativePosition)
+        if distance == 1 {
+            return 12.0  // Subtle blur for adjacent spheres
+        } else if distance == 2 {
+            return 4.0  // More blur for distant spheres
+        }
+        return 6.0  // Maximum blur for very distant spheres
+    }
+    
     var body: some View {
-        VStack(spacing: 40) {
-            GlowingSphereView(
-                sphereType: sphereType,
-                isActive: isCurrentSphere,
-                scale: $sphereScale,
-                glowIntensity: $sphereGlowIntensity,
-                breathingPhase: isCurrentSphere ? sphereBreathingPhase : 0,
-                idleBreathingPhase: isCurrentSphere ? naturalBreathingPhase : 0,
-                useCustomBreathing: isCurrentSphere && quickTapBreathing
-            )
-            .scaleEffect(finalScale)
-            .opacity(finalOpacity)
-            .gesture(createSphereGesture(sphereType))
-            
-            if isCurrentSphere {
-                SphereLabelView(
-                    sphereType: sphereType,
-                    isExpanded: isExpanded
-                )
-                .opacity(finalOpacity)
+        // Use GeometryReader to center spheres at the same level
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
+                Spacer()
+                
+                // Sphere container - centered vertically
+                VStack(spacing: 40) {
+                    GlowingSphereView(
+                        sphereType: sphereType,
+                        isActive: isCurrentSphere,
+                        scale: $sphereScale,
+                        glowIntensity: $sphereGlowIntensity,
+                        breathingPhase: isCurrentSphere ? sphereBreathingPhase : 0,
+                        idleBreathingPhase: isCurrentSphere ? naturalBreathingPhase : 0,
+                        useCustomBreathing: isCurrentSphere && quickTapBreathing
+                    )
+                    .scaleEffect(finalScale)
+                    .opacity(finalOpacity)
+                    .blur(radius: blurRadius)
+                    .gesture(createSphereGesture(sphereType))
+                    
+                    if isCurrentSphere {
+                        SphereLabelView(
+                            sphereType: sphereType,
+                            isExpanded: isExpanded
+                        )
+                        .opacity(finalOpacity)
+                    } else {
+                        // Invisible spacer to maintain consistent positioning
+                        // This ensures all spheres are at the same level even when labels are hidden
+                        Color.clear
+                            .frame(height: 80) // Approximate height of the label area
+                    }
+                }
+                
+                Spacer()
             }
+            .frame(width: geometry.size.width, height: geometry.size.height)
         }
         .offset(x: totalOffset)
         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: totalOffset)
