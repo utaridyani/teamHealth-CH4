@@ -98,9 +98,9 @@ struct MainMenuView: View {
                     HStack {
                         Spacer()
                         SoundToggleButton(color: currentSphereType.baseColor)
-                            .padding(.trailing, 20)
-                            .padding(.top, 50)
+                            .position(x: screenWidth * 0.86, y: screenHeight / 23)
                             .animation(.easeInOut(duration: 0.3), value: currentSphereType)
+                            .zIndex(100)
                     }
                     Spacer()
                 }
