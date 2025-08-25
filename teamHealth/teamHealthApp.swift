@@ -12,20 +12,29 @@ import SwiftData
 struct teamHealthApp: App {
     @StateObject var hapticData = HapticData()
     @StateObject var selectedHaptic = SelectedHaptic()
-    @State private var showOnboarding = true
+
     @State private var onboardingStars: [Star] = []
     @State private var selectedSphereType: SphereType = .dawn
     
+    @StateObject var mute = MuteStore()
+
+    // guided tutorial
+    @AppStorage("didFinishOnboarding") private var didFinishOnboarding = false
+    @AppStorage("didFinishTutorial")   private var didFinishTutorial   = false
+
     var body: some Scene {
         WindowGroup {
-            if showOnboarding {
+            if !didFinishOnboarding {
                 OnboardingManager(
                     stars: $onboardingStars,
                     selectedSphereType: $selectedSphereType,
-                    onComplete: {
-                        showOnboarding = false
-                    }
+                    onComplete: { didFinishOnboarding = true }
                 )
+            } else if !didFinishTutorial {
+                MainTutorialView(
+                    onComplete: { didFinishTutorial = true }
+                )
+                    .environmentObject(mute)
             } else {
                 MainMenuView(
                     inheritedStars: onboardingStars,

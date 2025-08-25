@@ -120,7 +120,7 @@ struct Star: Identifiable {
         self.angle = CGFloat.random(in: 0...(2 * .pi))
         self.distance = 1.0
         self.speed = CGFloat.random(in: 50...150)
-        self.baseSize = CGFloat.random(in: 0.5...2.0)
+        self.baseSize = CGFloat.random(in: 0.5...0.8)
     }
     
     func position(centerX: CGFloat, centerY: CGFloat) -> CGPoint {

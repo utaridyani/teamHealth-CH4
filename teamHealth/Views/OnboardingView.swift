@@ -8,6 +8,9 @@
 import SwiftUI
 
 struct OnboardingView: View {
+    // Toggle this to preview the menu look inside onboarding (false) or jump straight to tutorial (true)
+    private let goStraightToTutorial = true
+
     @State private var currentPage = 0
     @State private var sphereScale: CGFloat = 1.0
     @State private var sphereGlowIntensity: Double = AnimationConstants.sphereGlowIntensity
@@ -15,51 +18,55 @@ struct OnboardingView: View {
     @State private var holdWork: DispatchWorkItem?
     @State private var lastHapticTime: Date = .distantPast
     @State private var isTransitioning = false
-    
+
     @State private var instructionText = "Tap to feel the vibration. \n"
-    
+
     // Big Bang Effect Manager
     @StateObject private var bigBangEffect = BigBangEffectManager()
-    @StateObject private var particleManager = ParticleManager()  // Changed from enhancedBurst
+    @StateObject private var particleManager = ParticleManager()
     @StateObject private var soundManager = SoundManager.shared
-    
+
     // Star animation - shared with app
     @Binding var stars: [Star]
     @Binding var selectedSphereType: SphereType
     private let starCount = 80
-    
+
     // Transition states
     @State private var showSphereSelection = false
     @State private var sphereSelectionOpacity: Double = 0
     @State private var onboardingSphereOpacity: Double = 1
     @State private var backgroundStarOpacity: Double = 0
     @State private var blackBackgroundOpacity: Double = 1
-    
+
     // Sphere selection states (for smooth transition)
     @State private var selection = 0
     @State private var menuSphereScale: CGFloat = 0.1
     @State private var menuSphereGlowIntensity: Double = AnimationConstants.sphereGlowIntensity
-    
+
     // Timer for animations
     private let animationTimer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
-    
+
     var onComplete: () -> Void
-    
+
     var body: some View {
         let screenWidth = UIScreen.main.bounds.width
         let screenHeight = UIScreen.main.bounds.height
-        
-        GeometryReader { geo in
+
+        GeometryReader { _ in
             ZStack {
                 // Layer 1: Black background for onboarding (fades out)
                 Color.black
                     .opacity(blackBackgroundOpacity)
                     .ignoresSafeArea()
-                
-                // Layer 2: Main menu gradient background (fades in after explosion)
-                selectedSphereType.backgroundGradient
-                    .opacity(1.0 - blackBackgroundOpacity)
-                    .ignoresSafeArea()
+
+                // Layer 2: Main menu gradient background (ONLY when previewing menu)
+                if !goStraightToTutorial {
+                    selectedSphereType.backgroundGradient
+                        .opacity(1.0 - blackBackgroundOpacity)
+                        .ignoresSafeArea()
+                }
+
+                // Top-right sound icon (kept visible)
                 VStack {
                     HStack {
                         Spacer()
@@ -70,84 +77,58 @@ struct OnboardingView: View {
                     Spacer()
                 }
                 .zIndex(100)
+
                 // Layer 3: Animated stars (opacity changes during transition)
                 ForEach(stars) { star in
                     let starPosition = star.position(centerX: screenWidth/2, centerY: screenHeight/2)
-                    
                     Circle()
                         .fill(Color.white.opacity(star.currentOpacity * (0.3 + backgroundStarOpacity * 0.5)))
                         .frame(width: star.currentSize, height: star.currentSize)
                         .position(starPosition)
                         .blur(radius: star.distance < 50 ? 0.5 : 0)
                 }
-                
+
                 // Layer 4: Onboarding content (fades out during transition)
                 if !showSphereSelection {
                     Group {
-                            // First page
-                            VStack(spacing: 20) {
-//                                VStack(spacing: 20) {
-//                                    Text("Express without word")
-//                                        .font(.system(size: 32, weight: .semibold, design: .rounded))
-//                                        .foregroundColor(.white)
-//                                        .multilineTextAlignment(.center)
-//                                }
-//                                .padding(.top, 100)
-                                
-//                                Spacer()
-                                
-                                // White Glowing Sphere
-                                WhiteGlowingSphereView(
-                                    isActive: true,
-                                    scale: $sphereScale,
-                                    glowIntensity: $sphereGlowIntensity,
-                                    size: 160,
-                                    enableBounce: true
-                                )
-                                .padding(.top, 200)
-                                .opacity(onboardingSphereOpacity)
-                                .scaleEffect(bigBangEffect.isExploding ? 0.01 : 1)
-                                .gesture(createSphereGesture())
-                                
-                                Spacer()
-                                
-//                                VStack(spacing: 8) {
-//                                    Text("Say it with a living rhythm,")
-//                                        .font(.system(size: 18, weight: .medium, design: .rounded))
-//                                        .foregroundColor(.white.opacity(0.8))
-//                                    Text("when words won't land.")
-//                                        .font(.system(size: 18, weight: .medium, design: .rounded))
-//                                        .foregroundColor(.white.opacity(0.8))
-//                                }
-//                                .padding(.bottom, 80)
-                            
+                        VStack(spacing: 20) {
+                            WhiteGlowingSphereView(
+                                isActive: true,
+                                scale: $sphereScale,
+                                glowIntensity: $sphereGlowIntensity,
+                                size: 160,
+                                enableBounce: true
+                            )
+                            .padding(.top, 200)
+                            .opacity(onboardingSphereOpacity)
+                            .scaleEffect(bigBangEffect.isExploding ? 0.01 : 1)
+                            .gesture(createSphereGesture())
+
+                            Spacer()
                         }
-                        
+
                         Spacer()
-                        
+
                         VStack(spacing: 6) {
                             Text(instructionText)
                                 .font(.system(size: 18, weight: .bold, design: .rounded))
                                 .foregroundColor(.white.opacity(0.8))
                                 .multilineTextAlignment(.center)
-                            //                                Text("when words won't land.")
-                            //                                    .font(.system(size: 18, weight: .medium, design: .rounded))
-                            //                                    .foregroundColor(.white.opacity(0.8))
                         }
                         .padding(.top, 350)
                     }
                     .opacity(onboardingSphereOpacity)
                     .transition(.opacity)
                 }
-                
+
                 // Layer 5: Big Bang Visual Effect
                 BigBangVisualEffect(
                     effectManager: bigBangEffect,
                     centerX: screenWidth / 2,
                     centerY: screenHeight / 2
                 )
-                
-                // Lightweight particles (simplified from enhanced burst)
+
+                // Lightweight particles
                 ForEach(particleManager.particles) { particle in
                     Circle()
                         .fill(Color.white.opacity(particle.life))
@@ -156,12 +137,11 @@ struct OnboardingView: View {
                         .blur(radius: particle.life < 0.5 ? 2 : 0)
                         .allowsHitTesting(false)
                 }
-                
-                // Layer 6: Sphere Selection (emerges from explosion center)
-                if showSphereSelection {
+
+                // Layer 6: Sphere Selection (ONLY when previewing menu)
+                if showSphereSelection && !goStraightToTutorial {
                     VStack {
                         Spacer()
-                        
                         TabView(selection: $selection) {
                             ForEach(SphereType.allCases, id: \.rawValue) { sphereType in
                                 VStack(spacing: 40) {
@@ -172,7 +152,7 @@ struct OnboardingView: View {
                                         glowIntensity: $menuSphereGlowIntensity
                                     )
                                     .scaleEffect(menuSphereScale)
-                                    
+
                                     SphereLabelView(
                                         sphereType: sphereType,
                                         isExpanded: false
@@ -185,14 +165,15 @@ struct OnboardingView: View {
                         .tabViewStyle(.page(indexDisplayMode: .never))
                         .frame(height: UIScreen.main.bounds.height * 0.6)
                         .opacity(sphereSelectionOpacity)
-                        
                         Spacer()
                     }
+                    .transition(.opacity)
                 }
             }
             .onAppear {
                 initializeStars()
                 selectedSphereType = .dawn
+                // Keep onboarding music; don't switch to sphere tracks when going straight
                 soundManager.playTrack("Onboarding")
             }
             .onReceive(animationTimer) { _ in
@@ -200,9 +181,9 @@ struct OnboardingView: View {
                 particleManager.update()
             }
             .onChange(of: selection) { newValue in
+                guard !goStraightToTutorial else { return }
                 withAnimation(.easeInOut(duration: 0.3)) {
                     selectedSphereType = SphereType(rawValue: newValue) ?? .dawn
-                    // Change music when sphere changes
                     soundManager.playTrack(soundManager.trackName(for: selectedSphereType))
                 }
             }
@@ -211,13 +192,9 @@ struct OnboardingView: View {
                     .onEnded { value in
                         if !isTransitioning && !bigBangEffect.isExploding && !showSphereSelection {
                             if value.translation.width < -50 && currentPage == 0 {
-                                withAnimation(.easeInOut(duration: 0.5)) {
-                                    currentPage = 1
-                                }
+                                withAnimation(.easeInOut(duration: 0.5)) { currentPage = 1 }
                             } else if value.translation.width > 50 && currentPage == 1 {
-                                withAnimation(.easeInOut(duration: 0.5)) {
-                                    currentPage = 0
-                                }
+                                withAnimation(.easeInOut(duration: 0.5)) { currentPage = 0 }
                             }
                         }
                     }
@@ -226,7 +203,6 @@ struct OnboardingView: View {
         .navigationBarBackButtonHidden()
         .onAppear {
             initializeStars()
-            
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                 if !isPressing && !isTransitioning {
                     instructionText = "Tap to feel the vibration. \nHold to continue."
@@ -234,24 +210,22 @@ struct OnboardingView: View {
             }
         }
     }
-    
+
     // MARK: - Sphere Gesture
     private func createSphereGesture() -> some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { _ in
                 if !isPressing && !isTransitioning {
                     isPressing = true
-                    
                     instructionText = "Tap to feel the vibration. \nHold to continue."
-                    
-                    // Initial haptic and animation
+
                     HapticManager.playAHAP(named: "drum")
-                    
+
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.6, blendDuration: 0)) {
                         sphereScale = 0.85
                         sphereGlowIntensity = 1.3
                     }
-                    
+
                     // Hold to complete onboarding with Big Bang
                     let work = DispatchWorkItem {
                         if !self.isTransitioning {
@@ -260,7 +234,7 @@ struct OnboardingView: View {
                     }
                     holdWork = work
                     DispatchQueue.main.asyncAfter(deadline: .now() + 3.0, execute: work)
-                    
+
                 } else if isPressing {
                     // Continuous haptic while holding
                     let now = Date()
@@ -274,7 +248,7 @@ struct OnboardingView: View {
                 isPressing = false
                 holdWork?.cancel()
                 holdWork = nil
-                
+
                 if !isTransitioning {
                     withAnimation(.spring(response: 0.5, dampingFraction: 0.7, blendDuration: 0)) {
                         sphereScale = 1.0
@@ -282,54 +256,53 @@ struct OnboardingView: View {
                     }
                 }
             }
-        
     }
-    
+
     // MARK: - Big Bang Trigger with Smooth Transition
     private func triggerBigBang() {
         isTransitioning = true
-        
+
         // Create particles at center
         let centerX = UIScreen.main.bounds.width / 2
         let centerY = UIScreen.main.bounds.height / 2
-        particleManager.createBurst(at: CGPoint(x: centerX, y: centerY))  // Simplified
-        
+        particleManager.createBurst(at: CGPoint(x: centerX, y: centerY))
+
         // Trigger the big bang effect with stars
         bigBangEffect.triggerBigBang(stars: &stars)
-        
-        // Start fading out onboarding sphere immediately
+
+        // Fade out onboarding sphere immediately
         withAnimation(.easeOut(duration: 0.3)) {
             onboardingSphereOpacity = 0
         }
-        
-        // Phase 1: During explosion (0-1.5s)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            // Start showing sphere selection while explosion is happening
-            showSphereSelection = true
-            
-            // Begin background transition
-            withAnimation(.easeInOut(duration: 2.0)) {
-                blackBackgroundOpacity = 0
-                backgroundStarOpacity = 1.0
+
+        if goStraightToTutorial {
+            // Keep screen dark; no menu gradient, no sphere selection, no track change.
+            // Let the explosion play briefly, then hand off to tutorial.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                onComplete()
             }
-        }
-        
-        // Phase 2: Spheres emerge from explosion center (1.5-3s)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            withAnimation(.spring(response: 0.8, dampingFraction: 0.7, blendDuration: 0)) {
-                menuSphereScale = 1.0
-                sphereSelectionOpacity = 1.0
+        } else {
+            // Original path that previews the menu feel
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                showSphereSelection = true
+                withAnimation(.easeInOut(duration: 2.0)) {
+                    blackBackgroundOpacity = 0
+                    backgroundStarOpacity = 1.0
+                }
             }
-            // Transition to sphere music when selection appears
-            soundManager.playTrack(soundManager.trackName(for: selectedSphereType))
-        }
-        
-        // Phase 3: Complete transition (4s)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
-            self.onComplete()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                withAnimation(.spring(response: 0.8, dampingFraction: 0.7)) {
+                    menuSphereScale = 1.0
+                    sphereSelectionOpacity = 1.0
+                }
+                soundManager.playTrack(soundManager.trackName(for: selectedSphereType))
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+                onComplete()
+            }
         }
     }
-    
+
     // MARK: - Star Management
     private func initializeStars() {
         if stars.isEmpty {
@@ -340,32 +313,25 @@ struct OnboardingView: View {
             }
         }
     }
-    
+
     private func updateStars() {
         let screenWidth = UIScreen.main.bounds.width
         let screenHeight = UIScreen.main.bounds.height
         let maxDistance = sqrt(pow(screenWidth, 2) + pow(screenHeight, 2)) + 100
-        
+
         for i in stars.indices {
-            // Update explosion if active
             if bigBangEffect.isExploding {
                 stars[i].updateWithExplosion()
             } else {
-                // Normal movement
                 stars[i].distance += stars[i].speed / 300.0
             }
-            
-            // Reset stars that go too far
             if stars[i].distance > maxDistance {
                 stars[i] = Star()
-                // If we're exploding, give new stars some initial velocity
                 if bigBangEffect.isExploding {
                     stars[i].speed = CGFloat.random(in: 100...200)
                 }
             }
         }
-        
-        // Clean up explosion data periodically when not exploding
         if !bigBangEffect.isExploding {
             Star.cleanupExplosionData()
         }
@@ -379,14 +345,13 @@ struct WhiteGlowingSphereView: View {
     @Binding var glowIntensity: Double
     let size: CGFloat
     let enableBounce: Bool
-    
+
     @State private var pulseAnimation = false
     @State private var rotationAngle: Double = 0
     @State private var breathingPhase: CGFloat = 0
-    
+
     var body: some View {
         ZStack {
-            // Outer glow rings
             if isActive {
                 ForEach(0..<3, id: \.self) { ring in
                     Circle()
@@ -405,52 +370,34 @@ struct WhiteGlowingSphereView: View {
                         .frame(width: size + 60 + CGFloat(ring * 30), height: size + 60 + CGFloat(ring * 30))
                         .opacity(pulseAnimation ? 0.8 - Double(ring) * 0.2 : 0.3 - Double(ring) * 0.1)
                         .scaleEffect(pulseAnimation ? 1.1 : 0.95)
-                        .rotationEffect(.degrees(rotationAngle + Double(ring * 30)))
+                        .rotationEffect(.degrees(rotationAngle + Double(ring) * 30))
                 }
             }
-            
-            // Main sphere with bouncy breathing
+
+            // Base sphere
             ZStack {
-                // Base sphere with white gradient
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [
-                                Color.white,
-                                Color.white.opacity(0.95),
-                                Color.white.opacity(0.85),
-                                Color.white.opacity(0.7)
-                            ],
+                            colors: [Color.white, Color.white.opacity(0.95), Color.white.opacity(0.85), Color.white.opacity(0.7)],
                             center: UnitPoint(x: 0.35, y: 0.25),
                             startRadius: 20,
                             endRadius: size/2
                         )
                     )
-                
-                // Anime-style highlight
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [
-                                Color.white.opacity(0.9),
-                                Color.white.opacity(0.3),
-                                Color.clear
-                            ],
+                            colors: [Color.white.opacity(0.9), Color.white.opacity(0.3), Color.clear],
                             center: UnitPoint(x: 0.3, y: 0.2),
                             startRadius: 10,
                             endRadius: size/4
                         )
                     )
-                
-                // Bottom shadow for depth
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [
-                                Color.clear,
-                                Color.black.opacity(0.1),
-                                Color.black.opacity(0.2)
-                            ],
+                            colors: [Color.clear, Color.black.opacity(0.1), Color.black.opacity(0.2)],
                             center: UnitPoint(x: 0.5, y: 0.8),
                             startRadius: size/5,
                             endRadius: size/2
@@ -459,16 +406,12 @@ struct WhiteGlowingSphereView: View {
             }
             .frame(width: size, height: size)
             .scaleEffect(scale * (enableBounce ? (1.0 + sin(breathingPhase) * 0.08) : 1.0))
-            
-            // Outer glow effect
+
+            // Outer glow
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [
-                            Color.white.opacity(0.6),
-                            Color.white.opacity(0.3),
-                            Color.clear
-                        ],
+                        colors: [Color.white.opacity(0.6), Color.white.opacity(0.3), Color.clear],
                         center: .center,
                         startRadius: size/3,
                         endRadius: size/2 + 20
@@ -479,38 +422,22 @@ struct WhiteGlowingSphereView: View {
                 .opacity(glowIntensity)
                 .blur(radius: 10)
         }
-        .shadow(color: Color.white.opacity(0.5), radius: 30, x: 0, y: 0)
-        .shadow(color: Color.white.opacity(0.3), radius: 15, x: 0, y: 0)
-        .onAppear {
-            if isActive {
-                startAnimations()
-            }
-        }
-        .onChange(of: isActive) { newValue in
-            if newValue {
-                startAnimations()
-            }
-        }
+        .shadow(color: Color.white.opacity(0.5), radius: 30)
+        .shadow(color: Color.white.opacity(0.3), radius: 15)
+        .onAppear { if isActive { startAnimations() } }
+        .onChange(of: isActive) { newValue in if newValue { startAnimations() } }
         .onReceive(Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()) { _ in
-            if enableBounce {
-                breathingPhase += 0.03
-            }
+            if enableBounce { breathingPhase += 0.03 }
         }
-        
     }
-    
+
     private func startAnimations() {
-        // Pulse animation
         withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
             pulseAnimation.toggle()
         }
-        
-        // Slow rotation for outer rings
         withAnimation(.linear(duration: 30).repeatForever(autoreverses: false)) {
             rotationAngle = 360
         }
-        
-        // Glow breathing
         withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
             glowIntensity = glowIntensity == AnimationConstants.sphereGlowIntensity ? 1.0 : AnimationConstants.sphereGlowIntensity
         }
@@ -520,7 +447,6 @@ struct WhiteGlowingSphereView: View {
 #Preview {
     @State var previewStars: [Star] = []
     @State var previewSphereType: SphereType = .dawn
-    
     return OnboardingView(
         stars: $previewStars,
         selectedSphereType: $previewSphereType
