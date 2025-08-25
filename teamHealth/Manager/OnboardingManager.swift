@@ -7,6 +7,8 @@ struct OnboardingManager: View {
     @State private var currentPage = 0
     let totalPages = 3
     
+    @StateObject private var soundManager = SoundManager.shared
+    
     @Binding var stars: [Star]
     @Binding var selectedSphereType: SphereType
     let onComplete: () -> Void  // Add completion handler
@@ -32,9 +34,23 @@ struct OnboardingManager: View {
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                 .ignoresSafeArea()
+                .onAppear{
+                    soundManager.playTrack("Onboarding")
+                }
                 
                 // Custom Page Control
                 VStack {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            SoundToggleButton(color: .white)
+                                .padding(.trailing, 20)
+                                .padding(.top, 50)
+                        }
+                        Spacer()
+                    }
+                    .zIndex(100)
+                    
                     Spacer()
                     if currentPage < totalPages - 1 {
                         HStack(spacing: 8) {
@@ -59,7 +75,7 @@ struct OnboardingManager: View {
                             Button(action: {
                                 showOnboardingView = true
                             }) {
-                                HStack(spacing: 6) {
+                                HStack() {
                                     Text("Next")
                                     Image(systemName: "chevron.right")
                                         .imageScale(.small)
@@ -82,4 +98,18 @@ struct OnboardingManager: View {
             }
         }
     }
+}
+
+
+#Preview {
+    @State var previewStars: [Star] = []
+    @State var previewSphereType: SphereType = .dawn
+    
+    return OnboardingManager(
+        stars: $previewStars,
+        selectedSphereType: $previewSphereType,
+        onComplete: {
+            print("Onboarding complete from Preview")
+        }
+    )
 }

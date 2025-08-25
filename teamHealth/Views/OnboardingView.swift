@@ -19,7 +19,7 @@ struct OnboardingView: View {
     @State private var lastHapticTime: Date = .distantPast
     @State private var isTransitioning = false
 
-    @State private var instructionText = "Tap to feel the vibration. \n"
+    @State private var instructionText = "Tap to feel the vibration."
 
     // Big Bang Effect Manager
     @StateObject private var bigBangEffect = BigBangEffectManager()
@@ -205,7 +205,7 @@ struct OnboardingView: View {
             initializeStars()
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                 if !isPressing && !isTransitioning {
-                    instructionText = "Tap to feel the vibration. \nHold to continue."
+                    instructionText = "Hold to continue."
                 }
             }
         }
@@ -217,7 +217,7 @@ struct OnboardingView: View {
             .onChanged { _ in
                 if !isPressing && !isTransitioning {
                     isPressing = true
-                    instructionText = "Tap to feel the vibration. \nHold to continue."
+                    instructionText = "Hold to continue."
 
                     HapticManager.playAHAP(named: "drum")
 
