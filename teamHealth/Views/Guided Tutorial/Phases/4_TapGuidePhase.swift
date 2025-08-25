@@ -144,7 +144,7 @@ struct TapGuidePhaseView: View {
                 bubbleManager.updateTouches([fakeID: fakePoint], sphereType: .twilight)
 
                 // after 3s - insturksi 1
-                DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                     showText = true
                     messageIndex = 0
 

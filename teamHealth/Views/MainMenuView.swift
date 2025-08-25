@@ -188,14 +188,28 @@ struct MainMenuView: View {
                             },
                             isArmed: { threeFingersHold },
                             onRight: {
+                                holdWork?.cancel()
+                                holdWork = nil
+                                burstWork?.cancel()
+                                burstWork = nil
+
+                                isPressing = false
+                                lastHapticTime = .distantPast
+                                quickTapBreathing = false
+
                                 withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                                     isExpanded = false
                                     bubbleManager.clearAll()
                                     touches.removeAll()
                                     threeFingersHold = false
+
                                     sphereScale = 1.0
                                     sphereGlowIntensity = AnimationConstants.sphereGlowIntensity
-                                    cleanupIdleDetection()
+                                    exploded = false
+                                    explodeScale = 1.0
+                                    explodeOpacity = 1.0
+                                    explodeBlur = 0
+                                    showHoldBurst = false
                                 }
                                 HapticManager.selection()
                             }
@@ -414,8 +428,8 @@ struct MainMenuView: View {
 
                             exploded = true
                             withAnimation(.easeOut(duration: 0.55)) {
-                                explodeScale = 0
-                                explodeOpacity = 0
+                                explodeScale = 1
+                                explodeOpacity = 1
                                 explodeBlur = 18
                             }
 

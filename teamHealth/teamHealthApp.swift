@@ -21,27 +21,36 @@ struct teamHealthApp: App {
     // guided tutorial
     @AppStorage("didFinishOnboarding") private var didFinishOnboarding = false
     @AppStorage("didFinishTutorial")   private var didFinishTutorial   = false
+    
+    // show splash every cold launch
+    @State private var showSplash = true
 
     var body: some Scene {
         WindowGroup {
-            if !didFinishOnboarding {
-                OnboardingManager(
-                    stars: $onboardingStars,
-                    selectedSphereType: $selectedSphereType,
-                    onComplete: { didFinishOnboarding = true }
-                )
-            } else if !didFinishTutorial {
-                MainTutorialView(
-                    onComplete: { didFinishTutorial = true }
-                )
-                    .environmentObject(mute)
-            } else {
-                MainMenuView(
-                    inheritedStars: onboardingStars,
-                    initialSphereType: selectedSphereType
-                )
-                .environmentObject(selectedHaptic)
-                .environmentObject(hapticData)
+            Group {
+                if showSplash {
+                    SplashScreenView {
+                        withAnimation(.easeOut(duration: 0.25)) {
+                            showSplash = false
+                        }
+                    }
+                } else if !didFinishOnboarding {
+                    OnboardingManager(
+                        stars: $onboardingStars,
+                        selectedSphereType: $selectedSphereType,
+                        onComplete: { didFinishOnboarding = true }
+                    )
+                } else if !didFinishTutorial {
+                    MainTutorialView(onComplete: { didFinishTutorial = true })
+                        .environmentObject(mute)
+                } else {
+                    MainMenuView(
+                        inheritedStars: onboardingStars,
+                        initialSphereType: selectedSphereType
+                    )
+                    .environmentObject(selectedHaptic)
+                    .environmentObject(hapticData)
+                }
             }
         }
     }
