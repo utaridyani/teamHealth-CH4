@@ -78,8 +78,9 @@ struct OnboardingView: View {
                     HStack {
                         Spacer()
                         SoundToggleButton(color: .white)
-                            .padding(.trailing, 20)
-                            .padding(.top, 50)
+                            .position(x: screenWidth * 0.86, y: screenHeight / 23)
+//                            .padding(.trailing, 20)
+//                            .padding(.top, 50)
                     }
                     Spacer()
                 }

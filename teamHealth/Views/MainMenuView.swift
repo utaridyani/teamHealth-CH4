@@ -65,6 +65,14 @@ struct MainMenuView: View {
     
     @StateObject private var soundManager = SoundManager.shared
     
+    @State private var showHoldBurst = false
+    @State private var burstWork: DispatchWorkItem? = nil
+    
+    @State private var exploded = false
+    @State private var explodeScale: CGFloat = 1.0   // 1 → 4
+    @State private var explodeOpacity: Double = 1.0  // 1 → 0
+    @State private var explodeBlur: CGFloat = 0      // 0 → 18
+    
     // Timers
     private let starTimer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
     private let bubbleTimer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
@@ -137,7 +145,12 @@ struct MainMenuView: View {
                                 naturalBreathingPhase: naturalBreathingPhase,
                                 quickTapBreathing: quickTapBreathing,
                                 isExpanded: isExpanded,
-                                createSphereGesture: createSphereGesture
+                                createSphereGesture: createSphereGesture,
+                                showHoldBurst: $showHoldBurst,
+                                exploded: $exploded,
+                                explodeScale: $explodeScale,
+                                explodeOpacity: $explodeOpacity,
+                                explodeBlur: $explodeBlur
                             )
                             .frame(height: geo.size.height)
                             
@@ -239,6 +252,23 @@ struct MainMenuView: View {
                         insertion: .scale(scale: 0.1).combined(with: .opacity),
                         removal: .scale(scale: 1.5).combined(with: .opacity)
                     ))
+                }
+                if showHoldBurst {
+                    SpectrumBurst(
+                        baseColor: currentSphereType.baseColor,
+                        duration: 1.4,
+                        maxScale: 8,
+                        repeatWaves: 5
+                    )
+                    .allowsHitTesting(false)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+                    .onAppear {
+                        // auto hide after the wave finishes
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                            withAnimation(.easeOut(duration: 0.2)) { showHoldBurst = false }
+                        }
+                    }
                 }
             }
             .onAppear {
@@ -354,18 +384,50 @@ struct MainMenuView: View {
                             }
                         }
                         
+//                        let burst = DispatchWorkItem { [weak soundManager] in
+//                            withAnimation(.easeOut(duration: 0.2)) {
+//                                showHoldBurst = true
+//                            }
+//                            HapticManager.playAHAP(named: "shockwave")
+//                            
+//                            exploded = true
+//                            withAnimation(.easeOut(duration: 0.55)) {
+//                                explodeScale = 0
+//                                explodeOpacity = 0
+//                                explodeBlur = 18
+//                            }
+//                        }
+//                        burstWork = burst
+//                        DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: burst)
+                        
                         let work = DispatchWorkItem {
                             print("Expanding sphere \(sphereType.name)")
-                            
                             selectedHaptic.selectedCircle = sphereType.hapticID
                             selectedHaptic.selectedColor = sphereType.baseColor
-                            
                             HapticManager.notification(.success)
-                            
+
+                            // BURST muncul di sini, setelah expand
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                showHoldBurst = true
+                            }
+                            HapticManager.playAHAP(named: "shockwave")
+
+                            exploded = true
+                            withAnimation(.easeOut(duration: 0.55)) {
+                                explodeScale = 0
+                                explodeOpacity = 0
+                                explodeBlur = 18
+                            }
+
                             self.isExpanded = true
+                            
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                showHoldBurst = true
+                            }
+                            HapticManager.playAHAP(named: "shockwave")
                         }
                         holdWork = work
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0, execute: work)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5, execute: work)
                         
                     } else {
                         let now = Date()
@@ -379,8 +441,27 @@ struct MainMenuView: View {
                     isPressing = false
                     holdWork?.cancel()
                     holdWork = nil
+                    burstWork?.cancel()
+                    burstWork = nil
+                    
+                    if showHoldBurst {
+                        withAnimation(.easeOut(duration: 0.5)) { showHoldBurst = false }
+                    }
+                    if exploded {
+                        exploded = false
+                        // KOREKSI: kembalikan ke 1, bukan 0
+                        explodeScale = 1
+                        explodeOpacity = 1
+                        explodeBlur = 0
+                    }
+
+                    // kembalikan scale/glow kalau perlu
+                    withAnimation(.interpolatingSpring(stiffness: 300, damping: 10)) {
+                        sphereScale = 1.0
+                        sphereGlowIntensity = AnimationConstants.sphereGlowIntensity
+                    }
                 }
-        )
+            )
     }
     
     private func createSelectionStarBurst(for sphereType: SphereType) {
@@ -789,6 +870,11 @@ struct SphereCarouselView: View {
     let quickTapBreathing: Bool
     let isExpanded: Bool
     let createSphereGesture: (SphereType) -> AnyGesture<DragGesture.Value>
+    @Binding var showHoldBurst: Bool
+    @Binding var exploded: Bool
+    @Binding var explodeScale: CGFloat
+    @Binding var explodeOpacity: Double
+    @Binding var explodeBlur: CGFloat
     
     var body: some View {
         GeometryReader { carouselGeo in
@@ -809,12 +895,17 @@ struct SphereCarouselView: View {
                         naturalBreathingPhase: naturalBreathingPhase,
                         quickTapBreathing: quickTapBreathing,
                         isExpanded: isExpanded,
-                        createSphereGesture: createSphereGesture
+                        createSphereGesture: createSphereGesture,
+                        showHoldBurst: showHoldBurst,
+                        exploded: $exploded,
+                        explodeScale: $explodeScale,
+                        explodeOpacity: $explodeOpacity,
+                        explodeBlur: $explodeBlur
                     )
                 }
             }
             .frame(width: carouselWidth, height: carouselGeo.size.height)
-            .clipped()
+//            .clipped()
         }
     }
 }
@@ -833,6 +924,11 @@ struct SphereCarouselItem: View {
     let quickTapBreathing: Bool
     let isExpanded: Bool
     let createSphereGesture: (SphereType) -> AnyGesture<DragGesture.Value>
+    let showHoldBurst: Bool
+    @Binding var exploded: Bool
+    @Binding var explodeScale: CGFloat
+    @Binding var explodeOpacity: Double
+    @Binding var explodeBlur: CGFloat
     
     private var sphereIndex: Int {
         var actualIndex = index
@@ -900,45 +996,81 @@ struct SphereCarouselItem: View {
         return 6.0  // Maximum blur for very distant spheres
     }
     
+    private var neighborAlpha: Double {
+        exploded && !isCurrentSphere ? 0.0 : 1.0
+    }
+    
     var body: some View {
+        let screenWidth = UIScreen.main.bounds.width
+        let screenHeight = UIScreen.main.bounds.height
+    
+        
         // Use GeometryReader to center spheres at the same level
         GeometryReader { geometry in
-            VStack(spacing: 0) {
-                Spacer()
-                
-                // Sphere container - centered vertically
-                VStack(spacing: 40) {
-                    GlowingSphereView(
-                        sphereType: sphereType,
-                        isActive: isCurrentSphere,
-                        scale: $sphereScale,
-                        glowIntensity: $sphereGlowIntensity,
-                        breathingPhase: isCurrentSphere ? sphereBreathingPhase : 0,
-                        idleBreathingPhase: isCurrentSphere ? naturalBreathingPhase : 0,
-                        useCustomBreathing: isCurrentSphere && quickTapBreathing
+            ZStack {
+                if isCurrentSphere && showHoldBurst {
+                    SpectrumBurst(
+                        baseColor: sphereType.baseColor,
+                        duration: 2,
+                        maxScale: 8,
+                        repeatWaves: 5
                     )
-                    .scaleEffect(finalScale)
-                    .opacity(finalOpacity)
-                    .blur(radius: blurRadius)
-                    .gesture(createSphereGesture(sphereType))
-                    
-                    if isCurrentSphere {
-                        SphereLabelView(
-                            sphereType: sphereType,
-                            isExpanded: isExpanded
-                        )
-                        .opacity(finalOpacity)
-                    } else {
-                        // Invisible spacer to maintain consistent positioning
-                        // This ensures all spheres are at the same level even when labels are hidden
-                        Color.clear
-                            .frame(height: 80) // Approximate height of the label area
-                    }
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+                    .compositingGroup() // keeps blend clean
+                    .frame(width: .infinity, height: .infinity)
+                    .position(x: screenWidth/2, y: screenHeight/2.5)
+                    .ignoresSafeArea()
                 }
-                
-                Spacer()
+                VStack(spacing: 0) {
+                    Spacer()
+                    
+                    // Sphere container - centered vertically
+                    VStack(spacing: 40) {
+                        GlowingSphereView(
+                            sphereType: sphereType,
+                            isActive: isCurrentSphere,
+                            scale: $sphereScale,
+                            glowIntensity: $sphereGlowIntensity,
+                            breathingPhase: isCurrentSphere ? sphereBreathingPhase : 0,
+                            idleBreathingPhase: isCurrentSphere ? naturalBreathingPhase : 0,
+                            useCustomBreathing: isCurrentSphere && quickTapBreathing
+                        )
+                        .scaleEffect(finalScale * (isCurrentSphere ? explodeScale : 1))
+                        .opacity(finalOpacity)
+                        .blur(radius: blurRadius)
+                        .gesture(createSphereGesture(sphereType))
+                        .overlay(
+                            Group {
+                                if isCurrentSphere && exploded {
+                                    ExplodeEffect(baseColor: sphereType.baseColor, shardCount: 26)
+                                        .allowsHitTesting(false)
+                                }
+                            }
+                        )
+                        
+                        if isCurrentSphere {
+                            SphereLabelView(
+                                sphereType: sphereType,
+                                isExpanded: isExpanded
+                            )
+                            .opacity(exploded ? 0 : 1)
+                        } else {
+                            // Invisible spacer to maintain consistent positioning
+                            // This ensures all spheres are at the same level even when labels are hidden
+                            Color.clear
+                                .frame(height: 80) // Approximate height of the label area
+                        }
+                    }
+                    .opacity(neighborAlpha)
+                    .ignoresSafeArea()
+
+                    
+                    Spacer()
+                }
+                .frame(width: geometry.size.width, height: geometry.size.height)
             }
-            .frame(width: geometry.size.width, height: geometry.size.height)
+            .ignoresSafeArea()
         }
         .offset(x: totalOffset)
         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: totalOffset)

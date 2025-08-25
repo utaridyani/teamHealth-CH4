@@ -60,7 +60,7 @@ struct TapGuidePhaseView: View {
                 // live touch circle
                 ForEach(Array(touches), id: \.key) { id, pos in
                     TouchCursorView(color: SphereType.twilight.baseColor)
-                        .position(x: pos.x, y: pos.y - 45)
+                        .position(x: pos.x, y: pos.y - 5)
                         .transition(.opacity.combined(with: .scale))
                 }
 

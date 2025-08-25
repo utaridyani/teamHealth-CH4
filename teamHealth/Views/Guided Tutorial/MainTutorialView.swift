@@ -25,7 +25,7 @@ struct MainTutorialView: View {
     @State private var advance = false
      
     // phase
-    @State private var phase: Phase = .carousel
+    @State private var phase: Phase = .tapguide
     
     @State private var centerScale: CGFloat = 1.0
     @State private var sideFade: Double = 1.0
