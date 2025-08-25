@@ -38,12 +38,12 @@ struct BlankPhaseView: View {
         .ignoresSafeArea()
         .navigationBarBackButtonHidden()
         .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 next = true
             }
         }
         .onChange(of: next) { _, newValue in
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                 onFinishedSlides()
             }
         }
