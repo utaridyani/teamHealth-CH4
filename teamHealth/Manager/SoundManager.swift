@@ -252,3 +252,4 @@ struct SoundToggleButton: View {
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: soundManager.isSoundEnabled)
     }
 }
+
