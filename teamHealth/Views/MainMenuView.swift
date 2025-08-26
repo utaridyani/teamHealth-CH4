@@ -39,7 +39,7 @@ struct MainMenuView: View {
     
     // Star animation - can inherit from onboarding
     @State private var stars: [Star]
-    private let starCount = 100
+    private let starCount = 200
     
     // Touch tracking
     @State private var touches: [Int: CGPoint] = [:]
