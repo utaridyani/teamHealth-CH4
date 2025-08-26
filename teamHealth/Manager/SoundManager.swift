@@ -41,7 +41,8 @@ class SoundManager: ObservableObject {
     
     private func setupAudioSession() {
         do {
-            try AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default)
+            // Changed from .ambient to .playback to ignore silent switch
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
             print("Failed to setup audio session: \(error)")
@@ -252,4 +253,3 @@ struct SoundToggleButton: View {
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: soundManager.isSoundEnabled)
     }
 }
-
