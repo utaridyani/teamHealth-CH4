@@ -13,6 +13,10 @@ fileprivate struct TouchPoint: Identifiable {
 }
 
 struct MainMenuView: View {
+    
+    @State private var showIdleHint = false
+    @State private var idleWork: DispatchWorkItem? = nil
+
     @EnvironmentObject var selectedHaptic: SelectedHaptic
     @StateObject private var bubbleManager = BubblePhysicsManager()
     
@@ -245,6 +249,19 @@ struct MainMenuView: View {
                                 .transition(.opacity.combined(with: .scale))
                         }
                         
+                        // ✅ Idle hint overlay
+                        if showIdleHint {
+                            VStack {
+                                Spacer()
+                                IdleInstructionView()
+                                    .padding(.bottom, 100)
+                                Spacer()
+                            }
+                            .transition(.opacity)
+                        }
+
+
+                        
                         if threeFingersHold {
                             VStack {
                                 Text("Swipe right to go back")
@@ -308,6 +325,25 @@ struct MainMenuView: View {
             .onChange(of: currentSphereType) { newType in
                 soundManager.playTrack(soundManager.trackName(for: newType))
             }
+            .onChange(of: isExpanded) { expanded in
+                if expanded {
+                    // User entered playground, schedule idle hint
+                    idleWork?.cancel()
+                    let work = DispatchWorkItem {
+                        withAnimation(.easeInOut(duration: 1.2)) {
+                            showIdleHint = true
+                        }
+                    }
+                    idleWork = work
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3.0, execute: work)
+                } else {
+                    // Leaving playground → clean up
+                    idleWork?.cancel()
+                    idleWork = nil
+                    showIdleHint = false
+                }
+            }
+            
             .onReceive(starTimer) { _ in
                 updateStars()
             }
@@ -624,6 +660,30 @@ struct MainMenuView: View {
     private func handleTouchChange(_ newTouches: [Int: CGPoint]) {
         let previousTouches = self.touches
         self.touches = newTouches
+        
+        // Idle hint handling
+        if newTouches.isEmpty {
+            // No touches → start idle timer if not already running
+            if idleWork == nil {
+                let work = DispatchWorkItem {
+                    withAnimation(.easeInOut(duration: 1.2)) {
+                        showIdleHint = true
+                    }
+                }
+                idleWork = work
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0, execute: work) // 3s delay
+            }
+        } else {
+            // Any touch → cancel idle hint and timer
+            idleWork?.cancel()
+            idleWork = nil
+            if showIdleHint {
+                withAnimation(.easeOut(duration: 0.6)) {
+                    showIdleHint = false
+                }
+            }
+        }
+
         
         // Create a new dictionary with the offset applied for the physics
         var offsetTouches: [Int: CGPoint] = [:]
@@ -1165,6 +1225,60 @@ struct SelectionBurst: Identifiable {
     
     var radius: CGFloat { currentSize / 2 }
 }
+
+struct IdleInstructionView: View {
+    @State private var currentTextIndex = 0
+    @State private var textOpacity: Double = 1.0
+    @State private var timer: Timer?
+    
+    private let instructionTexts = [
+        "Tap or hold  \nanywhere to feel \nthe vibration",
+        "Hold three fingers \nto exit"
+    ]
+    
+    private let displayDuration: TimeInterval = 4.0
+    private let fadeDuration: TimeInterval = 0.8
+    
+    var body: some View {
+        ZStack {
+            ForEach(0..<instructionTexts.count, id: \.self) { index in
+                Text(instructionTexts[index])
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.75))
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(6)
+                    .padding(.horizontal, 24)
+                    .opacity(currentTextIndex == index ? textOpacity : 0)
+            }
+        }
+        .onAppear(perform: startTextCycling)
+        .onDisappear {
+            timer?.invalidate()
+            timer = nil
+        }
+    }
+    
+    private func startTextCycling() {
+        textOpacity = 1.0
+        timer = Timer.scheduledTimer(withTimeInterval: displayDuration, repeats: true) { _ in
+            cycleText()
+        }
+    }
+    
+    private func cycleText() {
+        withAnimation(.easeOut(duration: fadeDuration)) {
+            textOpacity = 0
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + fadeDuration) {
+            currentTextIndex = (currentTextIndex + 1) % instructionTexts.count
+            withAnimation(.easeIn(duration: fadeDuration)) {
+                textOpacity = 1.0
+            }
+        }
+    }
+}
+
 
 #Preview {
     MainMenuView()
