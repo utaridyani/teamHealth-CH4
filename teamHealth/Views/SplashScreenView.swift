@@ -35,7 +35,7 @@ struct SplashScreenView: View {
                     showOnBoard = true
                 }
                 
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                     withAnimation {
                         hideOnBoard = true
                     }
