@@ -1,4 +1,4 @@
-//  MainMenuView.swift
+//  MainMenuView.swift - Updated sphere gesture to handle swipe vs tap
 //  test_haptics
 //
 //  Created by Utari Dyani Laksmi on 14/08/25.
@@ -126,7 +126,7 @@ struct MainMenuView: View {
                 
                 if !isExpanded {
                     ZStack {
-                        // Invisible full-screen drag area
+                        // Invisible full-screen drag area for carousel
                         Color.clear
                             .contentShape(Rectangle())
                             .gesture(createCarouselDragGesture())
@@ -145,7 +145,7 @@ struct MainMenuView: View {
                                 naturalBreathingPhase: naturalBreathingPhase,
                                 quickTapBreathing: quickTapBreathing,
                                 isExpanded: isExpanded,
-                                createSphereGesture: createSphereGesture,
+                                createSphereGesture: createSwipeAwareSphereGesture,
                                 showHoldBurst: $showHoldBurst,
                                 exploded: $exploded,
                                 explodeScale: $explodeScale,
@@ -192,17 +192,17 @@ struct MainMenuView: View {
                                 holdWork = nil
                                 burstWork?.cancel()
                                 burstWork = nil
-
+                                
                                 isPressing = false
                                 lastHapticTime = .distantPast
                                 quickTapBreathing = false
-
+                                
                                 withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                                     isExpanded = false
                                     bubbleManager.clearAll()
                                     touches.removeAll()
                                     threeFingersHold = false
-
+                                    
                                     sphereScale = 1.0
                                     sphereGlowIntensity = AnimationConstants.sphereGlowIntensity
                                     exploded = false
@@ -361,10 +361,38 @@ struct MainMenuView: View {
             }
     }
     
-    private func createSphereGesture(for sphereType: SphereType) -> AnyGesture<DragGesture.Value> {
+    // NEW: Smart gesture that detects swipe vs tap/hold intent
+    private func createSwipeAwareSphereGesture(for sphereType: SphereType) -> AnyGesture<DragGesture.Value> {
         return AnyGesture(
             DragGesture(minimumDistance: 0)
-                .onChanged { _ in
+                .onChanged { value in
+                    let horizontalMovement = abs(value.translation.width)
+                    let verticalMovement = abs(value.translation.height)
+                    let totalMovement = sqrt(pow(value.translation.width, 2) + pow(value.translation.height, 2))
+                    
+                    // Detect if this is likely a horizontal swipe
+                    let isHorizontalSwipe = horizontalMovement > 30 &&
+                    horizontalMovement > verticalMovement * 2 &&
+                    totalMovement > 40
+                    
+                    // If it's a clear horizontal swipe, cancel any hold work and update carousel
+                    if isHorizontalSwipe {
+                        // Cancel hold timer to prevent unwanted expansion
+                        holdWork?.cancel()
+                        holdWork = nil
+                        isPressing = false
+                        
+                        // Reset sphere animations if they were started
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            sphereScale = 1.0
+                            sphereGlowIntensity = AnimationConstants.sphereGlowIntensity
+                        }
+                        
+                        dragOffset = value.translation.width
+                        return // Don't trigger haptic for swipes
+                    }
+                    
+                    // Otherwise, handle as normal sphere interaction
                     if !isPressing {
                         isPressing = true
                         
@@ -398,52 +426,57 @@ struct MainMenuView: View {
                             }
                         }
                         
-//                        let burst = DispatchWorkItem { [weak soundManager] in
-//                            withAnimation(.easeOut(duration: 0.2)) {
-//                                showHoldBurst = true
-//                            }
-//                            HapticManager.playAHAP(named: "shockwave")
-//                            
-//                            exploded = true
-//                            withAnimation(.easeOut(duration: 0.55)) {
-//                                explodeScale = 0
-//                                explodeOpacity = 0
-//                                explodeBlur = 18
-//                            }
-//                        }
-//                        burstWork = burst
-//                        DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: burst)
-                        
-                        let work = DispatchWorkItem {
-                            print("Expanding sphere \(sphereType.name)")
-                            selectedHaptic.selectedCircle = sphereType.hapticID
-                            selectedHaptic.selectedColor = sphereType.baseColor
-                            HapticManager.notification(.success)
-
-                            // BURST muncul di sini, setelah expand
-                            withAnimation(.easeOut(duration: 0.2)) {
-                                showHoldBurst = true
-                            }
-                            HapticManager.playAHAP(named: "shockwave")
-
-                            exploded = true
-                            withAnimation(.easeOut(duration: 0.55)) {
-                                explodeScale = 1
-                                explodeOpacity = 1
-                                explodeBlur = 18
-                            }
-
-                            self.isExpanded = true
+                        // Delay starting hold timer to allow swipe detection
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            // Only start hold timer if still pressing and no swipe detected
+                            guard self.isPressing && self.holdWork == nil else { return }
                             
-                            withAnimation(.easeOut(duration: 0.2)) {
-                                showHoldBurst = true
+                            let work = DispatchWorkItem {
+                                print("Expanding sphere \(sphereType.name)")
+                                selectedHaptic.selectedCircle = sphereType.hapticID
+                                selectedHaptic.selectedColor = sphereType.baseColor
+                                HapticManager.notification(.success)
+                                
+                                // BURST muncul di sini, setelah expand
+                                withAnimation(.easeOut(duration: 0.2)) {
+                                    showHoldBurst = true
+                                }
+                                HapticManager.playAHAP(named: "shockwave")
+                                
+                                exploded = true
+                                withAnimation(.easeOut(duration: 0.55)) {
+                                    explodeScale = 1
+                                    explodeOpacity = 1
+                                    explodeBlur = 18
+                                }
+                                
+                                self.isExpanded = true
+                                
+                                withAnimation(.easeOut(duration: 0.2)) {
+                                    showHoldBurst = true
+                                }
+                                HapticManager.playAHAP(named: "shockwave")
                             }
-                            HapticManager.playAHAP(named: "shockwave")
+                            self.holdWork = work
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.3, execute: work) // Reduced from 2.5 to 2.3 since we already waited 0.2
                         }
-                        holdWork = work
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5, execute: work)
                         
                     } else {
+                        // Check again if this becomes a swipe during continued touch
+                        if isHorizontalSwipe {
+                            holdWork?.cancel()
+                            holdWork = nil
+                            isPressing = false
+                            
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                sphereScale = 1.0
+                                sphereGlowIntensity = AnimationConstants.sphereGlowIntensity
+                            }
+                            
+                            dragOffset = value.translation.width
+                            return
+                        }
+                        
                         let now = Date()
                         if now.timeIntervalSince(lastHapticTime) > 0.2 {
                             lastHapticTime = now
@@ -451,31 +484,59 @@ struct MainMenuView: View {
                         }
                     }
                 }
-                .onEnded { _ in
-                    isPressing = false
-                    holdWork?.cancel()
-                    holdWork = nil
-                    burstWork?.cancel()
-                    burstWork = nil
+                .onEnded { value in
+                    let horizontalMovement = abs(value.translation.width)
+                    let verticalMovement = abs(value.translation.height)
+                    let totalMovement = sqrt(pow(value.translation.width, 2) + pow(value.translation.height, 2))
                     
-                    if showHoldBurst {
-                        withAnimation(.easeOut(duration: 0.5)) { showHoldBurst = false }
-                    }
-                    if exploded {
-                        exploded = false
-                        // KOREKSI: kembalikan ke 1, bukan 0
-                        explodeScale = 1
-                        explodeOpacity = 1
-                        explodeBlur = 0
-                    }
-
-                    // kembalikan scale/glow kalau perlu
-                    withAnimation(.interpolatingSpring(stiffness: 300, damping: 10)) {
-                        sphereScale = 1.0
-                        sphereGlowIntensity = AnimationConstants.sphereGlowIntensity
+                    // Detect if this was a horizontal swipe
+                    let isHorizontalSwipe = horizontalMovement > 30 &&
+                    horizontalMovement > verticalMovement * 2 &&
+                    totalMovement > 40
+                    
+                    if isHorizontalSwipe {
+                        // Handle carousel navigation
+                        let dragThreshold: CGFloat = 50
+                        let velocityThreshold: CGFloat = 300
+                        
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                            if value.translation.width > dragThreshold || value.velocity.width > velocityThreshold {
+                                currentIndex = (currentIndex - 1 + SphereType.allCases.count) % SphereType.allCases.count
+                            } else if value.translation.width < -dragThreshold || value.velocity.width < -velocityThreshold {
+                                currentIndex = (currentIndex + 1) % SphereType.allCases.count
+                            }
+                            dragOffset = 0
+                            
+                            currentSphereType = SphereType.allCases[currentIndex]
+                            selection = currentIndex
+                        }
+                    } else {
+                        // Handle sphere interaction cleanup
+                        isPressing = false
+                        holdWork?.cancel()
+                        holdWork = nil
+                        burstWork?.cancel()
+                        burstWork = nil
+                        
+                        if showHoldBurst {
+                            withAnimation(.easeOut(duration: 0.5)) { showHoldBurst = false }
+                        }
+                        if exploded {
+                            exploded = false
+                            // KOREKSI: kembalikan ke 1, bukan 0
+                            explodeScale = 1
+                            explodeOpacity = 1
+                            explodeBlur = 0
+                        }
+                        
+                        // kembalikan scale/glow kalau perlu
+                        withAnimation(.interpolatingSpring(stiffness: 300, damping: 10)) {
+                            sphereScale = 1.0
+                            sphereGlowIntensity = AnimationConstants.sphereGlowIntensity
+                        }
                     }
                 }
-            )
+        )
     }
     
     private func createSelectionStarBurst(for sphereType: SphereType) {
@@ -559,9 +620,7 @@ struct MainMenuView: View {
         selectionBurstBubbles.removeAll { $0.opacity < 0.05 }
     }
     
-    // MainMenuView.swift - Fixed handleTouchChange and haptic functions
-    
-    
+    // Rest of the functions remain the same...
     private func handleTouchChange(_ newTouches: [Int: CGPoint]) {
         let previousTouches = self.touches
         self.touches = newTouches
@@ -919,7 +978,7 @@ struct SphereCarouselView: View {
                 }
             }
             .frame(width: carouselWidth, height: carouselGeo.size.height)
-//            .clipped()
+            //            .clipped()
         }
     }
 }
@@ -1017,7 +1076,7 @@ struct SphereCarouselItem: View {
     var body: some View {
         let screenWidth = UIScreen.main.bounds.width
         let screenHeight = UIScreen.main.bounds.height
-    
+        
         
         // Use GeometryReader to center spheres at the same level
         GeometryReader { geometry in
@@ -1078,7 +1137,7 @@ struct SphereCarouselItem: View {
                     }
                     .opacity(neighborAlpha)
                     .ignoresSafeArea()
-
+                    
                     
                     Spacer()
                 }
