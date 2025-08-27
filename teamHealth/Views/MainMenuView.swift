@@ -944,16 +944,15 @@ struct MainMenuView: View {
         case "circle1":  // Twilight
             switch area {
             case 0: HapticManager.playAHAP(named: "twilight")    // 100%
-            case 1: HapticManager.playAHAP(named: "twilight_80") // 75%
-            case 2: HapticManager.playAHAP(named: "twilight_60") // 50%
+            case 1: HapticManager.playAHAP(named: "twilight_80") // 80%
+            case 2: HapticManager.playAHAP(named: "twilight_60") // 60%
             default: break
             }
         case "circle2":  // Reverie
             switch area {
             case 0: HapticManager.playAHAP(named: "reverie")     // 100%
-            case 1: HapticManager.playAHAP(named: "reverie_80")  // 75%
-            case 2: HapticManager.playAHAP(named: "reverie_60")  // 50%
-                
+            case 1: HapticManager.playAHAP(named: "reverie_80")  // 80%
+            case 2: HapticManager.playAHAP(named: "reverie_60")  // 60%
             default: break
             }
         default:

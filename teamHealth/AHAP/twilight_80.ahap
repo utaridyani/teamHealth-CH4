@@ -13,7 +13,7 @@
         "EventDuration": 0.5,
         "EventParameters": [
           { "ParameterID": "HapticIntensity", "ParameterValue": 0.6 },
-          { "ParameterID": "HapticSharpness", "ParameterValue": 0.4 },
+          { "ParameterID": "HapticSharpness", "ParameterValue": 0.35 },
           { "ParameterID": "AttackTime", "ParameterValue": 0.25 },
           { "ParameterID": "ReleaseTime", "ParameterValue": 0.35 },
           { "ParameterID": "Sustained", "ParameterValue": 1.0 }

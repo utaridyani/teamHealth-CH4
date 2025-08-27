@@ -94,7 +94,7 @@ struct IntensityPhaseView: View {
             .ignoresSafeArea()
             .onAppear {
                 // start a gentle haptic while it travels
-                startLoopingHaptic("twilight_50")
+                startLoopingHaptic("twilight_60")
 
                 // start motion after a brief delay
                 t = 0

@@ -3,17 +3,20 @@
   "Metadata": {
     "Project": "teamHealth",
     "Created": "21 Aug 2025",
-    "Description": "Reverie — slow, soothing wave oscillation over 1 second."
+    "Description": "Reverie — slow, soothing wave oscillation over 0.8 second."
   },
   "Pattern": [
     {
       "Event": {
         "Time": 0.0,
         "EventType": "HapticContinuous",
-        "EventDuration": 1.0,
+        "EventDuration": 0.8,
         "EventParameters": [
           { "ParameterID": "HapticIntensity", "ParameterValue": 0.6 },
-          { "ParameterID": "HapticSharpness", "ParameterValue": 0.25 }
+          { "ParameterID": "HapticSharpness", "ParameterValue": 0.2 },
+          { "ParameterID": "AttackTime", "ParameterValue": 0.3 },
+          { "ParameterID": "ReleaseTime", "ParameterValue": 0.3 },
+          { "ParameterID": "Sustained", "ParameterValue": 1.0 }
         ]
       }
     },
@@ -22,11 +25,11 @@
         "ParameterID": "HapticIntensityControl",
         "Time": 0.0,
         "ParameterCurveControlPoints": [
-          { "Time": 0.0, "ParameterValue": 0.25 },
-          { "Time": 0.25, "ParameterValue": 0.7 },
-          { "Time": 0.5, "ParameterValue": 0.4 },
-          { "Time": 0.75, "ParameterValue": 0.65 },
-          { "Time": 1.0, "ParameterValue": 0.25 }
+          { "Time": 0.0,  "ParameterValue": 0.3 },
+          { "Time": 0.2,  "ParameterValue": 0.65 },
+          { "Time": 0.4,  "ParameterValue": 0.4 },
+          { "Time": 0.6,  "ParameterValue": 0.55 },
+          { "Time": 0.8,  "ParameterValue": 0.3 }
         ]
       }
     },
@@ -35,9 +38,9 @@
         "ParameterID": "HapticSharpnessControl",
         "Time": 0.0,
         "ParameterCurveControlPoints": [
-          { "Time": 0.0, "ParameterValue": 0.2 },
-          { "Time": 0.5, "ParameterValue": 0.35 },
-          { "Time": 1.0, "ParameterValue": 0.2 }
+          { "Time": 0.0,  "ParameterValue": 0.15 },
+          { "Time": 0.4,  "ParameterValue": 0.25 },
+          { "Time": 0.8,  "ParameterValue": 0.15 }
         ]
       }
     }
